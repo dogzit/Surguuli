@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ApproveButton from "./ApproveButton";
+import { cn } from "@/lib/utils";
 
 export interface TeacherRow {
   id: string;
@@ -28,6 +29,23 @@ export interface TeacherRow {
 interface Props {
   teachers: TeacherRow[];
   total: number;
+}
+
+// Багш бүрт өөр өөр өнгө оноох функц
+function getAvatarColor(name: string) {
+  const colors = [
+    "bg-red-100 text-red-600",
+    "bg-orange-100 text-orange-600",
+    "bg-amber-100 text-amber-600",
+    "bg-emerald-100 text-emerald-600",
+    "bg-blue-100 text-blue-600",
+    "bg-indigo-100 text-indigo-600",
+    "bg-violet-100 text-violet-600",
+    "bg-pink-100 text-pink-600",
+  ];
+  // Нэрний уртаас хамааруулан өнгө сонгох
+  const index = name.length % colors.length;
+  return colors[index];
 }
 
 const CYR_TO_LAT: Record<string, string> = {
@@ -152,9 +170,16 @@ export default function TeacherTable({ teachers, total }: Props) {
                   {i + 1}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="font-medium">{t.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {t.position}
+                  <div className="flex items-center gap-3">
+                    {/* Аватар хэсэг */}
+                    <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-semibold text-sm", getAvatarColor(t.name))}>
+                      {t.name.charAt(0).toUpperCase()}
+                    </div>
+                    {/* Нэр, Албан тушаал */}
+                    <div>
+                      <div className="font-medium">{t.name}</div>
+                      <div className="text-xs text-muted-foreground">{t.position}</div>
+                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-3">

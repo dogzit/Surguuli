@@ -30,10 +30,7 @@ export default function RootLayout({
 
 
         <footer className="fixed bottom-4 right-4 z-50">
-          <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-md">
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Б.Золбаяр • 11д</span>
-          </div>
+          
         </footer>
       </body>
     </html>

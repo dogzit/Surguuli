@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Briefcase, CheckCircle2, Clock, Users } from "lucide-react";
+import { Briefcase, CheckCircle2, Clock, Users, FileCheck } from "lucide-react"; // FileCheck нэмэв
 import { prisma } from "@/lib/prisma";
 import { APPROVER_POSITIONS } from "@/lib/positions";
 import { Card } from "@/components/ui/card";
@@ -21,7 +21,6 @@ export default async function ApproverDashboard() {
 
   const total = APPROVER_POSITIONS.length;
 
-  // 1. Багш нарын жагсаалтыг эхлээд үүсгэнэ
   const rows: TeacherRow[] = teachers.map((t) => {
     const signed = t.managedSignatures.length;
     const mine = t.managedSignatures.find((s) => s.approverId === me.id);
@@ -36,13 +35,14 @@ export default async function ApproverDashboard() {
     };
   });
 
-  // 2. Зурсан багш нарыг хамгийн дээд талд гаргах (Энд өөрчлөлт орлоо)
+  // Эрэмбэлэлт: Зурсан багш нарыг хамгийн дээд талд гаргах
   const sortedRows = [...rows].sort((a, b) => {
     if (a.alreadySigned === b.alreadySigned) return 0;
     return a.alreadySigned ? -1 : 1;
   });
 
   const signedByMe = rows.filter((r) => r.alreadySigned).length;
+  const fullyCompleted = rows.filter((r) => r.complete).length; // Бүрэн баталгаажсан багш нар
   const remaining = rows.length - signedByMe;
 
   return (
@@ -59,12 +59,18 @@ export default async function ApproverDashboard() {
         </div>
       </header>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
         <Stat
           icon={<Users className="h-4 w-4" />}
           label="Нийт багш"
           value={rows.length}
           tone="default"
+        />
+        <Stat
+          icon={<FileCheck className="h-4 w-4" />}
+          label="Бүрэн баталгаажсан"
+          value={fullyCompleted}
+          tone="success"
         />
         <Stat
           icon={<CheckCircle2 className="h-4 w-4" />}
@@ -80,7 +86,6 @@ export default async function ApproverDashboard() {
         />
       </div>
 
-      {/* 3. sortedRows-ийг дамжуулна */}
       <TeacherTable teachers={sortedRows} total={total} />
     </main>
   );

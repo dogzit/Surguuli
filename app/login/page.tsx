@@ -37,6 +37,10 @@ export default async function LoginPage() {
           />
         </div>
       </div>
+      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-slate-900/90 px-3 py-1.5 text-[11px] font-medium text-white shadow-lg backdrop-blur-sm transition-all hover:bg-slate-950">
+        <span className="text-blue-400">{"< >"}</span>
+        <span>Хөгжүүлсэн: 11д Б.Золбаяр</span>
+      </div>
     </main>
   );
 }
