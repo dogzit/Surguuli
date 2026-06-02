@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, roleHomePath } from "@/lib/session";
 
 export default async function Home() {
   const me = await getCurrentUser();
   if (!me) redirect("/login");
-  redirect(me.role === "APPROVER" ? "/dashboard/approver" : "/dashboard/teacher");
+  redirect(roleHomePath(me.role));
 }

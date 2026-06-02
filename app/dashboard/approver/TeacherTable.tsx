@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Filter, Search, X } from "lucide-react";
+import { CheckCircle2, Filter, Search, X } from "lucide-react";
 import CircularProgress from "@/components/CircularProgress";
 import ProgressBar from "@/components/ProgressBar";
 import { Button } from "@/components/ui/button";
@@ -165,19 +165,33 @@ export default function TeacherTable({ teachers, total }: Props) {
           </thead>
           <tbody className="divide-y divide-border text-sm">
             {filtered.map((t, i) => (
-              <tr key={t.id} className="transition-colors hover:bg-muted/30">
+              <tr
+                key={t.id}
+                className={cn(
+                  "transition-colors",
+                  t.complete
+                    ? "bg-emerald-50/60 hover:bg-emerald-100/60 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15"
+                    : "hover:bg-muted/30",
+                )}
+              >
                 <td className="px-4 py-3 text-sm font-medium text-muted-foreground tabular-nums">
                   {i + 1}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
-                    {/* Аватар хэсэг */}
                     <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-semibold text-sm", getAvatarColor(t.name))}>
                       {t.name.charAt(0).toUpperCase()}
                     </div>
-                    {/* Нэр, Албан тушаал */}
                     <div>
-                      <div className="font-medium">{t.name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{t.name}</span>
+                        {t.complete && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-semibold text-white dark:bg-emerald-600">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            Бэлэн
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">{t.position}</div>
                     </div>
                   </div>

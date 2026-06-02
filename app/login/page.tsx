@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, roleHomePath } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
+import LoginHeader from "./LoginHeader";
 import UserPicker from "./UserPicker";
+import ThemeToggle from "@/components/ThemeToggle";
+import Footer from "@/components/Footer";
+import AdminLoginForm from "./AdminLoginForm";
 
 export default async function LoginPage() {
   const me = await getCurrentUser();
   if (me) {
-    redirect(me.role === "APPROVER" ? "/dashboard/approver" : "/dashboard/teacher");
+    redirect(roleHomePath(me.role));
   }
 
   const users = await prisma.user.findMany({
@@ -16,31 +19,26 @@ export default async function LoginPage() {
   });
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-lg space-y-6">
-        <div className="flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
-            <ShieldCheck className="h-8 w-8" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-            Системд нэвтрэх
-          </h1>
-          <p className="mt-2 text-slate-500">
-            Өөрийн нэрээ сонгоод PIN кодоо оруулна уу
-          </p>
-        </div>
+    <div className="relative flex min-h-screen flex-col bg-background">
+      <div className="absolute right-4 top-4 z-10">
+        <ThemeToggle />
+      </div>
+      <main className="flex flex-1 items-center justify-center p-4">
+        <div className="w-full max-w-lg space-y-6">
+          <LoginHeader />
 
-        <div className="overflow-hidden rounded-2xl border bg-white shadow-sm ring-1 ring-slate-200">
-          <UserPicker
-            teachers={users.filter((u) => u.role === "TEACHER")}
-            approvers={users.filter((u) => u.role === "APPROVER")}
-          />
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-sm ring-1 ring-border">
+            <UserPicker
+              teachers={users.filter((u) => u.role === "TEACHER")}
+              approvers={users.filter((u) => u.role === "APPROVER")}
+            />
+          </div>
+          {/* <div className="border-t border-border bg-muted/50">
+            <AdminLoginForm />
+          </div> */}
         </div>
-      </div>
-      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-slate-900/90 px-3 py-1.5 text-[11px] font-medium text-white shadow-lg backdrop-blur-sm transition-all hover:bg-slate-950">
-        <span className="text-blue-400">{"< >"}</span>
-        <span>Хөгжүүлсэн: 11д Б.Золбаяр</span>
-      </div>
-    </main>
+      </main>
+      <Footer />
+    </div>
   );
 }

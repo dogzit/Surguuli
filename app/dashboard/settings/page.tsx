@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, roleHomePath } from "@/lib/session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -22,8 +22,7 @@ export default async function SettingsPage() {
   const me = await getCurrentUser();
   if (!me) redirect("/login");
 
-  const backHref =
-    me.role === "APPROVER" ? "/dashboard/approver" : "/dashboard/teacher";
+  const backHref = roleHomePath(me.role);
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">
@@ -35,21 +34,18 @@ export default async function SettingsPage() {
           <ArrowLeft className="h-4 w-4" />
           Буцах
         </Link>
-        <div className="mt-3 flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <SettingsIcon className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-                Тохиргоо
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {me.name} · {me.position}
-              </p>
-            </div>
+        <div className="mt-3 flex items-center gap-3">
+          <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary dark:bg-primary/20">
+            <SettingsIcon className="h-5 w-5" />
           </div>
-
+          <div>
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+              Тохиргоо
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {me.name} · {me.position}
+            </p>
+          </div>
         </div>
       </header>
 

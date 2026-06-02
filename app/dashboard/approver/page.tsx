@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Briefcase, CheckCircle2, Clock, Users, FileCheck } from "lucide-react"; // FileCheck нэмэв
 import { prisma } from "@/lib/prisma";
 import { APPROVER_POSITIONS } from "@/lib/positions";
-import { Card } from "@/components/ui/card";
+import { StatCard, StatGrid } from "@/components/StatCard";
 import TeacherTable, { type TeacherRow } from "./TeacherTable";
 
 export default async function ApproverDashboard() {
@@ -14,16 +14,27 @@ export default async function ApproverDashboard() {
   const teachers = await prisma.user.findMany({
     where: { role: "TEACHER" },
     include: {
-      managedSignatures: { select: { approverId: true, note: true } },
+      managedSignatures: {
+        select: {
+          approverId: true,
+          note: true,
+          approver: { select: { position: true } },
+        },
+      },
     },
     orderBy: [{ position: "asc" }, { name: "asc" }],
   });
 
   const total = APPROVER_POSITIONS.length;
+  const validPositions = new Set<string>(APPROVER_POSITIONS);
 
   const rows: TeacherRow[] = teachers.map((t) => {
-    const signed = t.managedSignatures.length;
-    const mine = t.managedSignatures.find((s) => s.approverId === me.id);
+    const validSigs = t.managedSignatures.filter((s) =>
+      validPositions.has(s.approver.position),
+    );
+    const signedSet = new Set(validSigs.map((s) => s.approver.position));
+    const signed = signedSet.size;
+    const mine = validSigs.find((s) => s.approverId === me.id);
     return {
       id: t.id,
       name: t.name,
@@ -59,67 +70,34 @@ export default async function ApproverDashboard() {
         </div>
       </header>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
-        <Stat
+      <StatGrid>
+        <StatCard
           icon={<Users className="h-4 w-4" />}
           label="Нийт багш"
           value={rows.length}
           tone="default"
         />
-        <Stat
+        <StatCard
           icon={<FileCheck className="h-4 w-4" />}
           label="Бүрэн баталгаажсан"
           value={fullyCompleted}
           tone="success"
         />
-        <Stat
+        <StatCard
           icon={<CheckCircle2 className="h-4 w-4" />}
           label="Таны зурсан"
           value={signedByMe}
           tone="success"
         />
-        <Stat
+        <StatCard
           icon={<Clock className="h-4 w-4" />}
-          label="Үлдсэн"
+          label="Зураагүй багш"
           value={remaining}
           tone="warning"
         />
-      </div>
+      </StatGrid>
 
       <TeacherTable teachers={sortedRows} total={total} />
     </main>
-  );
-}
-
-function Stat({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  tone: "default" | "success" | "warning";
-}) {
-  const toneClasses = {
-    default: "bg-primary/10 text-primary",
-    success: "bg-emerald-100 text-emerald-700",
-    warning: "bg-amber-100 text-amber-700",
-  };
-  return (
-    <Card className="flex items-center gap-3 p-4">
-      <div
-        className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${toneClasses[tone]}`}
-      >
-        {icon}
-      </div>
-      <div>
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">
-          {label}
-        </div>
-        <div className="text-2xl font-bold tabular-nums">{value}</div>
-      </div>
-    </Card>
   );
 }

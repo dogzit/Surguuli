@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google"; // Фонт нэмэх нь UI-г илүү гоё харагдуулна
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { cn } from "@/lib/utils";
 
-// Google фонт ашиглах (Tailwind-д тохируулсан бол)
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
@@ -18,20 +18,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="mn" className="scroll-smooth">
-      <body className={cn(
-        "min-h-screen bg-slate-50 font-sans text-slate-900 antialiased",
-        inter.className
-      )}>
-        {children}
-
-
-        <Toaster richColors position="top-right" />
-
-
-        <footer className="fixed bottom-4 right-4 z-50">
-          
-        </footer>
+    <html lang="mn" className="scroll-smooth" suppressHydrationWarning>
+      <body
+        className={cn(
+          "min-h-screen bg-background font-sans text-foreground antialiased",
+          inter.className,
+        )}
+      >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   );

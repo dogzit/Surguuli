@@ -63,7 +63,9 @@ export default function CircularProgress({
           strokeLinecap="round"
           className={cn(
             "transition-all duration-700 ease-out",
-            isDone ? "text-emerald-500" : "text-primary",
+            isDone
+              ? "text-emerald-500 dark:text-emerald-400"
+              : "text-primary",
           )}
         />
       </svg>
@@ -72,7 +74,9 @@ export default function CircularProgress({
           className={cn(
             "font-bold tabular-nums",
             isLarge ? "text-4xl" : isMedium ? "text-lg" : "text-[10px]",
-            isDone ? "text-emerald-600" : "text-foreground",
+            isDone
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-foreground",
           )}
         >
           {Math.round(pct)}%

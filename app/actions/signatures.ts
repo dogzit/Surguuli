@@ -39,12 +39,9 @@ export async function addSignature(teacherId: string, note?: string) {
   });
 
   const total = await prisma.signature.count({ where: { teacherId } });
-  if (total >= APPROVER_POSITIONS.length) {
-    console.log(`Ready for payment: teacher ${teacherId}`);
-  }
 
   revalidateAll();
-  return { total };
+  return { total, complete: total >= APPROVER_POSITIONS.length };
 }
 
 export async function updateSignatureNote(teacherId: string, note: string) {

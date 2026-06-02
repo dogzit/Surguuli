@@ -13,7 +13,7 @@ import HeaderActions from "@/components/HeaderActions";
 export default async function TeacherDashboard() {
   const me = await getCurrentUser();
   if (!me) redirect("/login");
-  if (me.role !== "TEACHER") redirect("/dashboard/teacher");
+  if (me.role !== "TEACHER") redirect("/dashboard/approver");
 
   const signatures = await prisma.signature.findMany({
     where: { teacherId: me.id },
@@ -23,14 +23,18 @@ export default async function TeacherDashboard() {
     orderBy: { createdAt: "asc" },
   });
 
-  const signedEntries = signatures.map((s) => ({
-    position: s.approver.position,
-    note: s.note,
-    approverName: s.approver.name,
-  }));
+  const validPositions = new Set<string>(APPROVER_POSITIONS);
+  const signedEntries = signatures
+    .map((s) => ({
+      position: s.approver.position,
+      note: s.note,
+      approverName: s.approver.name,
+    }))
+    .filter((s) => validPositions.has(s.position));
 
   const total = APPROVER_POSITIONS.length;
-  const signed = signedEntries.length;
+  const signedPositions = new Set(signedEntries.map((s) => s.position));
+  const signed = signedPositions.size;
   const pct = Math.round((signed / total) * 100);
   const complete = signed >= total;
   const remaining = total - signed;
@@ -45,7 +49,7 @@ export default async function TeacherDashboard() {
   });
 
   const readyBadge = complete && (
-    <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
+    <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
       <CheckCircle2 className="h-4 w-4" />
       Олговор олгоход бэлэн боллоо
     </div>
@@ -65,10 +69,10 @@ export default async function TeacherDashboard() {
             <p className="text-sm text-muted-foreground">{me.position}</p>
           </div>
         </div>
-        <HeaderActions />
+
       </header>
 
-      <Card className="mb-6 p-6">
+      <Card className="mb-6 p-5 sm:p-6">
         <div className="hidden lg:block">
           <div className="mb-3 flex items-baseline justify-between gap-4">
             <div>
@@ -77,7 +81,7 @@ export default async function TeacherDashboard() {
                 Амралтын олговрын баталгаажуулалт {total} хүнээс бүрдэнэ.
               </p>
             </div>
-            <span className={cn("text-4xl font-bold tabular-nums", complete ? "text-emerald-600" : "text-primary")}>
+            <span className={cn("text-4xl font-bold tabular-nums", complete ? "text-emerald-600 dark:text-emerald-400" : "text-primary")}>
               {pct}%
             </span>
           </div>
@@ -85,6 +89,27 @@ export default async function TeacherDashboard() {
           <p className="mt-3 text-sm tabular-nums">
             <span className="font-semibold text-foreground">{signed}</span>/{total} гарын үсэг зурагдсан · {remaining} үлдсэн
           </p>
+          {readyBadge}
+        </div>
+
+        <div className="lg:hidden">
+          <div className="flex items-center gap-4">
+            <CircularProgress signed={signed} total={total} size={84} />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold">Нийт явц</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {total} хүнээс бүрдэнэ
+              </p>
+              <p className="mt-2 text-sm tabular-nums">
+                <span className="font-semibold text-foreground">{signed}</span>
+                <span className="text-muted-foreground">/{total}</span>
+                <span className="ml-2 text-xs text-muted-foreground">· {remaining} үлдсэн</span>
+              </p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <ProgressBar signed={signed} total={total} showLabels={false} />
+          </div>
           {readyBadge}
         </div>
       </Card>
@@ -113,9 +138,9 @@ export default async function TeacherDashboard() {
                     </time>
                   </div>
                   {s.note && (
-                    <div className="mt-3 pl-4 py-3 border-l-4 border-emerald-500 bg-emerald-50/50 rounded-r-lg shadow-sm">
-                      <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Албан тэмдэглэл</p>
-                      <p className="text-sm text-slate-700 leading-relaxed font-medium">{s.note}</p>
+                    <div className="mt-3 pl-4 py-3 border-l-4 border-emerald-500 bg-emerald-50/50 rounded-r-lg shadow-sm dark:bg-emerald-500/10">
+                      <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-widest mb-1 dark:text-emerald-300">Албан тэмдэглэл</p>
+                      <p className="text-sm text-foreground leading-relaxed font-medium">{s.note}</p>
                     </div>
                   )}
                 </li>

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, hashPin, verifyPin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
 export type FormResult =
@@ -44,7 +44,7 @@ export async function updatePin(formData: FormData): Promise<FormResult> {
   const next = String(formData.get("next") ?? "").trim();
   const confirm = String(formData.get("confirm") ?? "").trim();
 
-  if (me.pin !== current) {
+  if (!(await verifyPin(current, me.pin))) {
     return { ok: false, error: "Одоогийн PIN буруу байна." };
   }
   if (next.length < 4 || next.length > 8) {
@@ -63,7 +63,8 @@ export async function updatePin(formData: FormData): Promise<FormResult> {
     };
   }
 
-  await prisma.user.update({ where: { id: me.id }, data: { pin: next } });
+  const hashed = await hashPin(next);
+  await prisma.user.update({ where: { id: me.id }, data: { pin: hashed } });
   revalidatePath("/dashboard/settings");
   return { ok: true, message: "PIN код шинэчлэгдлээ." };
 }
