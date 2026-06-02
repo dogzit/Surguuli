@@ -14,30 +14,29 @@ export default async function LoginPage() {
     orderBy: [{ role: "asc" }, { name: "asc" }],
     select: { id: true, name: true, position: true, role: true },
   });
-  const teachers = users.filter((u) => u.role === "TEACHER");
-  const approvers = users.filter((u) => u.role === "APPROVER");
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-10">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-          <ShieldCheck className="h-6 w-6" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Амралтын олговрын баталгаажуулалт
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-lg space-y-6">
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
+            <ShieldCheck className="h-8 w-8" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Системд нэвтрэх
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Нэрээ сонгоод PIN кодоо оруулна уу. Анхны PIN бүгдэд адил{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-              0000
-            </code>
-            .
+          <p className="mt-2 text-slate-500">
+            Өөрийн нэрээ сонгоод PIN кодоо оруулна уу
           </p>
         </div>
-      </div>
 
-      <UserPicker teachers={teachers} approvers={approvers} />
+        <div className="overflow-hidden rounded-2xl border bg-white shadow-sm ring-1 ring-slate-200">
+          <UserPicker
+            teachers={users.filter((u) => u.role === "TEACHER")}
+            approvers={users.filter((u) => u.role === "APPROVER")}
+          />
+        </div>
+      </div>
     </main>
   );
 }

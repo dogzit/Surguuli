@@ -20,6 +20,8 @@ export default async function ApproverDashboard() {
   });
 
   const total = APPROVER_POSITIONS.length;
+
+  // 1. Багш нарын жагсаалтыг эхлээд үүсгэнэ
   const rows: TeacherRow[] = teachers.map((t) => {
     const signed = t.managedSignatures.length;
     const mine = t.managedSignatures.find((s) => s.approverId === me.id);
@@ -32,6 +34,12 @@ export default async function ApproverDashboard() {
       myNote: mine?.note ?? null,
       complete: signed >= total,
     };
+  });
+
+  // 2. Зурсан багш нарыг хамгийн дээд талд гаргах (Энд өөрчлөлт орлоо)
+  const sortedRows = [...rows].sort((a, b) => {
+    if (a.alreadySigned === b.alreadySigned) return 0;
+    return a.alreadySigned ? -1 : 1;
   });
 
   const signedByMe = rows.filter((r) => r.alreadySigned).length;
@@ -72,7 +80,8 @@ export default async function ApproverDashboard() {
         />
       </div>
 
-      <TeacherTable teachers={rows} total={total} />
+      {/* 3. sortedRows-ийг дамжуулна */}
+      <TeacherTable teachers={sortedRows} total={total} />
     </main>
   );
 }
