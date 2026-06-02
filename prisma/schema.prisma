@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String      @id @default(cuid())
+  name              String
+  email             String?     @unique
+  role              String
+  position          String
+  pin               String      @default("0000")
+
+  signatures        Signature[] @relation("ApproverSignatures")
+  managedSignatures Signature[] @relation("TeacherSignatures")
+}
+
+model Signature {
+  id         String   @id @default(cuid())
+  teacherId  String
+  approverId String
+  note       String?
+
+  teacher    User     @relation("TeacherSignatures", fields: [teacherId], references: [id], onDelete: Cascade)
+  approver   User     @relation("ApproverSignatures", fields: [approverId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([teacherId, approverId])
+  @@index([teacherId])
+  @@index([approverId])
+}
