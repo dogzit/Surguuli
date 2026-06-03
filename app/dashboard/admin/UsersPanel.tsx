@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { cn, matchesSearch } from "@/lib/utils";
 import {
   createUser,
   deleteUser,
@@ -70,15 +70,12 @@ export default function UsersPanel({
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = q.trim();
     return users.filter((u) => {
       if (roleFilter !== ALL && u.role !== roleFilter) return false;
       if (!needle) return true;
-      return (
-        u.name.toLowerCase().includes(needle) ||
-        u.position.toLowerCase().includes(needle) ||
-        (u.email?.toLowerCase().includes(needle) ?? false)
-      );
+      const hay = `${u.name} ${u.position} ${u.email ?? ""}`;
+      return matchesSearch(hay, needle);
     });
   }, [users, q, roleFilter]);
 

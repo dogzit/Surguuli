@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { ADMIN_COOKIE } from "@/lib/admin";
 import {
   SESSION_COOKIE,
   hashPin,
@@ -72,6 +73,8 @@ export async function loginAs(formData: FormData) {
 }
 
 export async function logout() {
-  cookies().delete(SESSION_COOKIE);
+  const store = cookies();
+  store.delete(SESSION_COOKIE);
+  store.delete(ADMIN_COOKIE);
   redirect("/login");
 }

@@ -23,7 +23,7 @@ export default async function LoginPage() {
         <ThemeToggle />
       </div>
       <main className="flex flex-1 items-center justify-center p-4">
-        <div className="w-full max-w-lg space-y-6">
+        <div className="w-full max-w-lg space-y-4">
           <LoginHeader />
 
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm ring-1 ring-border">

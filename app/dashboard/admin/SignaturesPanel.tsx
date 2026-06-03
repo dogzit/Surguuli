@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { deleteSignature } from "@/app/actions/admin";
+import { matchesSearch } from "@/lib/utils";
 
 export interface AdminSignature {
   id: string;
@@ -29,16 +30,12 @@ export default function SignaturesPanel({ signatures }: { signatures: AdminSigna
   const [pending, start] = useTransition();
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = q.trim();
     if (!needle) return signatures;
-    return signatures.filter(
-      (s) =>
-        s.teacher.name.toLowerCase().includes(needle) ||
-        s.approver.name.toLowerCase().includes(needle) ||
-        s.teacher.position.toLowerCase().includes(needle) ||
-        s.approver.position.toLowerCase().includes(needle) ||
-        (s.note?.toLowerCase().includes(needle) ?? false),
-    );
+    return signatures.filter((s) => {
+      const hay = `${s.teacher.name} ${s.approver.name} ${s.teacher.position} ${s.approver.position} ${s.note ?? ""}`;
+      return matchesSearch(hay, needle);
+    });
   }, [signatures, q]);
 
   const handleDelete = () => {

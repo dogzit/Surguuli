@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ApproveButton from "./ApproveButton";
-import { cn } from "@/lib/utils";
+import { cn, toLatin } from "@/lib/utils";
 
 export interface TeacherRow {
   id: string;
@@ -46,22 +46,6 @@ function getAvatarColor(name: string) {
   // Нэрний уртаас хамааруулан өнгө сонгох
   const index = name.length % colors.length;
   return colors[index];
-}
-
-const CYR_TO_LAT: Record<string, string> = {
-  а: "a", б: "b", в: "v", г: "g", д: "d", е: "ye", ё: "yo",
-  ж: "j", з: "z", и: "i", й: "i", к: "k", л: "l", м: "m",
-  н: "n", о: "o", ө: "u", п: "p", р: "r", с: "s", т: "t",
-  у: "u", ү: "u", ф: "f", х: "kh", ц: "ts", ч: "ch", ш: "sh",
-  щ: "sh", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
-};
-
-function toLatin(s: string): string {
-  return s
-    .toLowerCase()
-    .split("")
-    .map((c) => CYR_TO_LAT[c] ?? c)
-    .join("");
 }
 
 const ALL = "__all__";

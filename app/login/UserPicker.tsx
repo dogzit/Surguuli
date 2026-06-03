@@ -8,7 +8,7 @@ import { loginAs } from "./actions";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { cn, matchesSearch } from "@/lib/utils";
 
 type User = { id: string; name: string; position: string; role: string };
 type Tab = "approver" | "teacher";
@@ -107,56 +107,54 @@ function PinDialog({
                 PIN код
               </p>
 
-              <div
-                onClick={() => inputRef.current?.focus()}
-                className="flex gap-2.5"
-              >
-                {[0, 1, 2, 3].map((i) => {
-                  const filled = i < pin.length;
-                  const active = i === pin.length;
-                  return (
-                    <motion.div
-                      key={i}
-                      animate={active ? { scale: [1, 1.04, 1] } : { scale: 1 }}
-                      transition={{ duration: 1.2, repeat: active ? Infinity : 0 }}
-                      className={cn(
-                        "relative flex h-14 w-12 items-center justify-center rounded-xl border-2 bg-muted/50 transition-all",
-                        filled
-                          ? "border-primary bg-primary/10"
-                          : active
-                          ? "border-primary/60 bg-card shadow-sm"
-                          : "border-border",
-                      )}
-                    >
-                      <AnimatePresence mode="wait">
-                        {filled && (
-                          <motion.span
-                            key="dot"
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0, opacity: 0 }}
-                            transition={{ type: "spring", stiffness: 340, damping: 18 }}
-                            className="h-3 w-3 rounded-full bg-primary"
-                          />
+              <div className="relative">
+                <div className="flex gap-2.5">
+                  {[0, 1, 2, 3].map((i) => {
+                    const filled = i < pin.length;
+                    const active = i === pin.length;
+                    return (
+                      <motion.div
+                        key={i}
+                        animate={active ? { scale: [1, 1.04, 1] } : { scale: 1 }}
+                        transition={{ duration: 1.2, repeat: active ? Infinity : 0 }}
+                        className={cn(
+                          "relative flex h-14 w-12 items-center justify-center rounded-xl border-2 bg-muted/50 transition-all",
+                          filled
+                            ? "border-primary bg-primary/10"
+                            : active
+                            ? "border-primary/60 bg-card shadow-sm"
+                            : "border-border",
                         )}
-                      </AnimatePresence>
-                    </motion.div>
-                  );
-                })}
+                      >
+                        <AnimatePresence mode="wait">
+                          {filled && (
+                            <motion.span
+                              key="dot"
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0, opacity: 0 }}
+                              transition={{ type: "spring", stiffness: 340, damping: 18 }}
+                              className="h-3 w-3 rounded-full bg-primary"
+                            />
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                <Input
+                  ref={inputRef}
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  maxLength={4}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  className="absolute inset-0 h-full w-full cursor-pointer rounded-xl opacity-0"
+                  aria-label="PIN код"
+                />
               </div>
-
-              <Input
-                ref={inputRef}
-                type="password"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                autoComplete="one-time-code"
-                maxLength={4}
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                className="sr-only"
-                aria-label="PIN код"
-              />
 
               <p className="text-xs text-muted-foreground">
                 4 оронтой PIN кодоо бичнэ үү
@@ -231,9 +229,9 @@ export default function UserPicker({ teachers, approvers }: { teachers: User[]; 
 
   const filtered = useMemo(() => {
     const users = tab === "teacher" ? teachers : approvers;
-    const needle = q.trim().toLowerCase();
+    const needle = q.trim();
     if (!needle) return users;
-    return users.filter((u) => u.name.toLowerCase().includes(needle));
+    return users.filter((u) => matchesSearch(`${u.name} ${u.position}`, needle));
   }, [tab, q, teachers, approvers]);
 
   const submit = (value: string) => {
@@ -275,12 +273,12 @@ export default function UserPicker({ teachers, approvers }: { teachers: User[]; 
   return (
     <>
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="w-full">
-        <div className="border-b px-6 pt-6">
+        <div className="border-b px-5 pt-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="approver"><Briefcase className="mr-2 h-4 w-4" />Баталгаажуулагч</TabsTrigger>
             <TabsTrigger value="teacher"><GraduationCap className="mr-2 h-4 w-4" />Багш</TabsTrigger>
           </TabsList>
-          <div className="relative mt-4 mb-6">
+          <div className="relative mt-3 mb-3">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Хайх..."
@@ -292,7 +290,7 @@ export default function UserPicker({ teachers, approvers }: { teachers: User[]; 
           </div>
         </div>
 
-        <TabsContent value={tab} className="max-h-[400px] overflow-y-auto px-6 pb-6">
+        <TabsContent value={tab} className="max-h-[45vh] min-h-[180px] overflow-y-auto px-5 pb-4">
           <AnimatePresence mode="wait">
             {filtered.length === 0 ? (
               <motion.div
@@ -324,11 +322,11 @@ export default function UserPicker({ teachers, approvers }: { teachers: User[]; 
                     type="button"
                     onClick={() => setSelected(u)}
                     aria-label={`${u.name} болж нэвтрэх`}
-                    className="flex w-full items-center gap-4 rounded-xl p-3 text-left transition-colors hover:bg-accent border border-transparent hover:border-border"
+                    className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-accent border border-transparent hover:border-border"
                   >
                     <div
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full font-bold",
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold",
                         avatarColor(u.id),
                       )}
                     >
