@@ -65,13 +65,9 @@ export function roleHomePath(role: string): string {
   return "/dashboard/teacher";
 }
 
-export async function requireUser(role?: "APPROVER" | "TEACHER" | "ADMIN") {
+export async function requireUser(role?: "APPROVER" | "TEACHER") {
   const me = await getCurrentUser();
   if (!me) redirect("/login");
   if (role && me.role !== role) redirect(roleHomePath(me.role));
   return me;
-}
-
-export async function requireAdmin() {
-  return requireUser("ADMIN");
 }

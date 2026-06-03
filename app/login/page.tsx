@@ -5,7 +5,6 @@ import LoginHeader from "./LoginHeader";
 import UserPicker from "./UserPicker";
 import ThemeToggle from "@/components/ThemeToggle";
 import Footer from "@/components/Footer";
-import AdminLoginForm from "./AdminLoginForm";
 
 export default async function LoginPage() {
   const me = await getCurrentUser();
@@ -33,9 +32,6 @@ export default async function LoginPage() {
               approvers={users.filter((u) => u.role === "APPROVER")}
             />
           </div>
-          {/* <div className="border-t border-border bg-muted/50">
-            <AdminLoginForm />
-          </div> */}
         </div>
       </main>
       <Footer />

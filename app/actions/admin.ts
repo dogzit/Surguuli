@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { hashPin, requireAdmin } from "@/lib/session";
+import { hashPin } from "@/lib/session";
+import { requireAdmin } from "@/lib/admin";
 import { revalidatePath } from "next/cache";
 
 export type Result<T = void> =
@@ -101,9 +102,7 @@ export async function updateUser(
 }
 
 export async function deleteUser(id: string): Promise<Result> {
-  const me = await requireAdmin();
-  if (id === me.id) return { ok: false, error: "Өөрийгөө устгах боломжгүй." };
-
+  await requireAdmin();
   await prisma.user.delete({ where: { id } });
   revalidateAll();
   return { ok: true, message: "Хэрэглэгч устгагдлаа." };

@@ -1,15 +1,13 @@
-import { redirect } from "next/navigation";
 import { Activity, ShieldAlert, Users as UsersIcon, FileSignature } from "lucide-react";
-import { getCurrentUser, roleHomePath } from "@/lib/session";
+import { isAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { APPROVER_POSITIONS } from "@/lib/positions";
 import { StatCard, StatGrid } from "@/components/StatCard";
 import AdminTabs from "./AdminTabs";
+import AdminGate from "./AdminGate";
 
 export default async function AdminDashboard() {
-  const me = await getCurrentUser();
-  if (!me) redirect("/login");
-  if (me.role !== "ADMIN") redirect(roleHomePath(me.role));
+  if (!(await isAdmin())) return <AdminGate />;
 
   const [users, signatures] = await Promise.all([
     prisma.user.findMany({
@@ -36,7 +34,6 @@ export default async function AdminDashboard() {
 
   const teachersCount = users.filter((u) => u.role === "TEACHER").length;
   const approversCount = users.filter((u) => u.role === "APPROVER").length;
-  const adminsCount = users.filter((u) => u.role === "ADMIN").length;
 
   // Бүрэн дууссан багш нарын тоо
   const sigByTeacher = new Map<string, Set<string>>();
@@ -81,7 +78,7 @@ export default async function AdminDashboard() {
             Админ хяналтын самбар
           </h1>
           <p className="text-sm text-muted-foreground">
-            {me.name} · бүх системийн удирдлага
+            Бүх системийн удирдлага
           </p>
         </div>
       </header>
@@ -116,8 +113,6 @@ export default async function AdminDashboard() {
       <AdminTabs
         users={clientUsers}
         signatures={clientSignatures}
-        meId={me.id}
-        adminsCount={adminsCount}
       />
     </main>
   );

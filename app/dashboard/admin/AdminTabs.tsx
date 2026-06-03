@@ -9,13 +9,9 @@ import BulkPanel from "./BulkPanel";
 export default function AdminTabs({
   users,
   signatures,
-  meId,
-  adminsCount,
 }: {
   users: AdminUser[];
   signatures: AdminSignature[];
-  meId: string;
-  adminsCount: number;
 }) {
   return (
     <Tabs defaultValue="users" className="w-full">
@@ -35,7 +31,7 @@ export default function AdminTabs({
       </TabsList>
 
       <TabsContent value="users" className="mt-4">
-        <UsersPanel users={users} meId={meId} adminsCount={adminsCount} />
+        <UsersPanel users={users} />
       </TabsContent>
 
       <TabsContent value="signatures" className="mt-4">

@@ -56,12 +56,8 @@ const ALL = "__all__";
 
 export default function UsersPanel({
   users,
-  meId,
-  adminsCount,
 }: {
   users: AdminUser[];
-  meId: string;
-  adminsCount: number;
 }) {
   const [q, setQ] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>(ALL);
@@ -183,18 +179,10 @@ export default function UsersPanel({
           </thead>
           <tbody className="divide-y divide-border text-sm">
             {filtered.map((u) => {
-              const isMe = u.id === meId;
               return (
                 <tr key={u.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-3">
-                    <div className="font-medium">
-                      {u.name}
-                      {isMe && (
-                        <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                          Та
-                        </span>
-                      )}
-                    </div>
+                    <div className="font-medium">{u.name}</div>
                     <div className="text-xs text-muted-foreground">{u.position}</div>
                   </td>
                   <td className="px-4 py-3">
@@ -247,9 +235,9 @@ export default function UsersPanel({
                         size="xs"
                         variant="outline"
                         onClick={() => setDeleteTarget(u)}
-                        disabled={pending || isMe}
+                        disabled={pending}
                         className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
-                        title={isMe ? "Өөрийгөө устгах боломжгүй" : "Устгах"}
+                        title="Устгах"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import crypto from "crypto";
 
 export const ADMIN_COOKIE = "admin_uid";
 const ADMIN_MARKER = "admin";
+const ADMIN_MAX_AGE = 60 * 60 * 8;
 
 function adminSecret(): string {
   const s = process.env.ADMIN_SECRET || process.env.SESSION_SECRET;
@@ -27,7 +29,13 @@ export async function setAdminSession() {
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
+    maxAge: ADMIN_MAX_AGE,
   });
+}
+
+export async function clearAdminSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete(ADMIN_COOKIE);
 }
 
 export async function isAdmin(): Promise<boolean> {
@@ -39,5 +47,10 @@ export async function isAdmin(): Promise<boolean> {
     .createHmac("sha256", adminSecret())
     .update(ADMIN_MARKER)
     .digest("hex");
-  return token === expected;
+  if (token.length !== expected.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+}
+
+export async function requireAdmin() {
+  if (!(await isAdmin())) redirect("/dashboard/admin");
 }

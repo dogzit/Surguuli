@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/session";
 import Logo from "./Logo";
 import HeaderActions from "./HeaderActions";
 
-export default async function AppHeader() {
-  const me = await getCurrentUser();
+export default function AppHeader() {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
@@ -17,7 +15,7 @@ export default async function AppHeader() {
             Нийслэлийн ерөнхий боловсролын 3-р Сургууль
           </span>
         </Link>
-        <HeaderActions isAdmin={me?.role === "ADMIN"} />
+        <HeaderActions />
       </div>
     </div>
   );
