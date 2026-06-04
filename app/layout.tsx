@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "Амралтын олговрог баталгаажуулах систем",
-  description: "Багш нарын амралтын олговрог хянах, баталгаажуулах нэгдсэн систем.",
+  title: "Амралт баталгаажуулах систем",
+  description: "Багш нарын амралт хянах, баталгаажуулах нэгдсэн систем.",
 };
 
 export default function RootLayout({
