@@ -12,7 +12,7 @@ export default function AppHeader() {
         >
           <Logo size={36} priority />
           <span className="hidden truncate text-sm font-semibold tracking-tight sm:inline sm:text-base">
-            Нийслэлийн ерөнхий боловсролын 3-р Сургууль
+            Нийслэлийн ерөнхий боловсролын 3 дугаар сургууль
           </span>
         </Link>
         <div className="shrink-0">

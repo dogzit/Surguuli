@@ -1,9 +1,11 @@
 import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { Briefcase, CheckCircle2, Clock, Users, FileCheck } from "lucide-react"; // FileCheck нэмэв
+import { Briefcase, CheckCircle2, Clock, Users, FileCheck, LayoutDashboard } from "lucide-react"; // FileCheck нэмэв
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { APPROVER_POSITIONS } from "@/lib/positions";
+import { ACCOUNTANT_POSITION, APPROVER_POSITIONS } from "@/lib/positions";
 import { StatCard, StatGrid } from "@/components/StatCard";
+import { Button } from "@/components/ui/button";
 import TeacherTable, { type TeacherRow } from "./TeacherTable";
 
 export default async function ApproverDashboard() {
@@ -56,18 +58,30 @@ export default async function ApproverDashboard() {
   const fullyCompleted = rows.filter((r) => r.complete).length; // Бүрэн баталгаажсан багш нар
   const remaining = rows.length - signedByMe;
 
+  const isAccountant = me.position === ACCOUNTANT_POSITION;
+
   return (
     <main className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <header className="mb-6 flex items-center gap-3">
-        <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Briefcase className="h-5 w-5" />
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Briefcase className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+              {me.name}
+            </h1>
+            <p className="text-sm text-muted-foreground">{me.position}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-            {me.name}
-          </h1>
-          <p className="text-sm text-muted-foreground">{me.position}</p>
-        </div>
+        {isAccountant && (
+          <Link href="/dashboard/accountant">
+            <Button variant="outline" size="sm">
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Хяналтын самбар руу буцах
+            </Button>
+          </Link>
+        )}
       </header>
 
       <StatGrid>

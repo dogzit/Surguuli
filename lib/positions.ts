@@ -10,3 +10,5 @@ export const APPROVER_POSITIONS = [
 ] as const;
 
 export type ApproverPosition = (typeof APPROVER_POSITIONS)[number];
+
+export const ACCOUNTANT_POSITION = "Нягтлан бодогч";

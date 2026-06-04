@@ -22,7 +22,7 @@ export default async function SettingsPage() {
   const me = await getCurrentUser();
   if (!me) redirect("/login");
 
-  const backHref = roleHomePath(me.role);
+  const backHref = roleHomePath(me.role, me.position);
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-6 lg:p-8">

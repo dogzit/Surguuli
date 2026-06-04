@@ -69,7 +69,7 @@ export async function loginAs(formData: FormData) {
     path: "/",
   });
 
-  redirect(roleHomePath(user.role));
+  redirect(roleHomePath(user.role, user.position));
 }
 
 export async function logout() {

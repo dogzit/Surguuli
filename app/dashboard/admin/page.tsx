@@ -35,19 +35,71 @@ export default async function AdminDashboard() {
   const teachersCount = users.filter((u) => u.role === "TEACHER").length;
   const approversCount = users.filter((u) => u.role === "APPROVER").length;
 
-  // Бүрэн дууссан багш нарын тоо
-  const sigByTeacher = new Map<string, Set<string>>();
-  for (const s of signatures) {
-    const validPos = new Set<string>(APPROVER_POSITIONS);
-    if (!validPos.has(s.approver.position)) continue;
-    const set = sigByTeacher.get(s.teacherId) ?? new Set<string>();
-    set.add(s.approver.position);
-    sigByTeacher.set(s.teacherId, set);
-  }
+  // Багш бүрийн сүүлийн төлөв (нэгдсэн дүнд хэрэглэнэ)
+  const validPos = new Set<string>(APPROVER_POSITIONS);
   const totalPositions = APPROVER_POSITIONS.length;
+  type TeacherAgg = {
+    signed: Set<string>;
+    lastAt: Date | null;
+    lastApprover: string | null;
+  };
+  const sigByTeacher = new Map<string, TeacherAgg>();
+  // signatures нь createdAt DESC байгаа тул эхний орох signature хамгийн сүүлийнх
+  for (const s of signatures) {
+    if (!validPos.has(s.approver.position)) continue;
+    const agg = sigByTeacher.get(s.teacherId) ?? {
+      signed: new Set<string>(),
+      lastAt: null,
+      lastApprover: null,
+    };
+    agg.signed.add(s.approver.position);
+    if (!agg.lastAt || s.createdAt > agg.lastAt) {
+      agg.lastAt = s.createdAt;
+      agg.lastApprover = s.approver.name;
+    }
+    sigByTeacher.set(s.teacherId, agg);
+  }
   const completedTeachers = Array.from(sigByTeacher.values()).filter(
-    (set) => set.size >= totalPositions,
+    (a) => a.signed.size >= totalPositions,
   ).length;
+
+  const teacherUsers = users.filter((u) => u.role === "TEACHER");
+  const overviewRows = teacherUsers
+    .map((t) => {
+      const agg = sigByTeacher.get(t.id);
+      const signedSet = agg?.signed ?? new Set<string>();
+      const signedPositions = APPROVER_POSITIONS.filter((p) =>
+        signedSet.has(p),
+      );
+      const missingPositions = APPROVER_POSITIONS.filter(
+        (p) => !signedSet.has(p),
+      );
+      return {
+        id: t.id,
+        name: t.name,
+        position: t.position,
+        signed: signedSet.size,
+        total: totalPositions,
+        complete: signedSet.size >= totalPositions,
+        signedPositions: [...signedPositions],
+        missingPositions: [...missingPositions],
+        lastSignedAt: agg?.lastAt ? agg.lastAt.toISOString() : null,
+        lastApproverName: agg?.lastApprover ?? null,
+      };
+    })
+    .sort((a, b) => {
+      // Эхэнд хагас үргэлжилж буй, дараа нь баталгаажсан, эцэст нь эхлээгүй
+      const aGroup = a.complete ? 1 : a.signed === 0 ? 2 : 0;
+      const bGroup = b.complete ? 1 : b.signed === 0 ? 2 : 0;
+      if (aGroup !== bGroup) return aGroup - bGroup;
+      // Хагас үргэлжилж буй дотроо: сүүлд хөдөлсөн нь дээгүүр
+      if (aGroup === 0) {
+        const at = a.lastSignedAt ? new Date(a.lastSignedAt).getTime() : 0;
+        const bt = b.lastSignedAt ? new Date(b.lastSignedAt).getTime() : 0;
+        return bt - at;
+      }
+      return a.name.localeCompare(b.name);
+    });
 
   const clientUsers = users.map((u) => ({
     id: u.id,
@@ -113,6 +165,7 @@ export default async function AdminDashboard() {
       <AdminTabs
         users={clientUsers}
         signatures={clientSignatures}
+        overview={overviewRows}
       />
     </main>
   );

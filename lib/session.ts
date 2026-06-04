@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { ACCOUNTANT_POSITION } from "./positions";
 
 export const SESSION_COOKIE = "session_uid";
 const BCRYPT_ROUNDS = 10;
@@ -59,15 +60,18 @@ export async function getCurrentUser() {
   return prisma.user.findUnique({ where: { id: uid } });
 }
 
-export function roleHomePath(role: string): string {
+export function roleHomePath(role: string, position?: string | null): string {
   if (role === "ADMIN") return "/dashboard/admin";
-  if (role === "APPROVER") return "/dashboard/approver";
+  if (role === "APPROVER") {
+    if (position === ACCOUNTANT_POSITION) return "/dashboard/accountant";
+    return "/dashboard/approver";
+  }
   return "/dashboard/teacher";
 }
 
 export async function requireUser(role?: "APPROVER" | "TEACHER") {
   const me = await getCurrentUser();
   if (!me) redirect("/login");
-  if (role && me.role !== role) redirect(roleHomePath(me.role));
+  if (role && me.role !== role) redirect(roleHomePath(me.role, me.position));
   return me;
 }

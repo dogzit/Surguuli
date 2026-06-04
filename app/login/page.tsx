@@ -9,7 +9,7 @@ import Footer from "@/components/Footer";
 export default async function LoginPage() {
   const me = await getCurrentUser();
   if (me) {
-    redirect(roleHomePath(me.role));
+    redirect(roleHomePath(me.role, me.position));
   }
 
   const users = await prisma.user.findMany({

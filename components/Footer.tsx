@@ -20,7 +20,7 @@ export default function Footer() {
         <div className="flex items-center gap-1.5 rounded-full bg-background px-3 py-1 shadow-sm ring-1 ring-border/50">
           <span className="text-blue-500 font-mono text-[9px]">{"< >"}</span>
           <span className="text-muted-foreground/90">
-            Хөгжүүлсэн: <span className="font-semibold text-foreground">Б.Золбаяр</span>
+            Хөгжүүлсэн: <span className="font-semibold text-foreground">11д Б.Золбаяр</span>
           </span>
         </div>
 

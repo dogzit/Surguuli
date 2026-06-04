@@ -49,9 +49,9 @@ export default async function TeacherDashboard() {
   });
 
   const readyBadge = complete && (
-    <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+    <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
       <CheckCircle2 className="h-4 w-4" />
-      Олговор олгоход бэлэн боллоо
+      Амралт баталгаажлаа · Олговор олгоход бэлэн
     </div>
   );
 
@@ -72,13 +72,17 @@ export default async function TeacherDashboard() {
 
       </header>
 
-      <Card className="mb-6 p-5 sm:p-6">
+      <Card className={cn("mb-6 p-5 sm:p-6", complete && "border-emerald-300 bg-emerald-50/40 dark:border-emerald-500/40 dark:bg-emerald-500/5")}>
         <div className="hidden lg:block">
           <div className="mb-3 flex items-baseline justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold">Нийт явц</h2>
+              <h2 className="text-base font-semibold">
+                {complete ? "Амралт баталгаажсан" : "Нийт явц"}
+              </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Амралтын олговрын баталгаажуулалт {total} хүнээс бүрдэнэ.
+                {complete
+                  ? `Бүх ${total} албан тушаалтан гарын үсгээ зурлаа.`
+                  : `Амралтын олговрын баталгаажуулалт ${total} хүнээс бүрдэнэ.`}
               </p>
             </div>
             <span className={cn("text-4xl font-bold tabular-nums", complete ? "text-emerald-600 dark:text-emerald-400" : "text-primary")}>
@@ -96,9 +100,11 @@ export default async function TeacherDashboard() {
           <div className="flex items-center gap-4">
             <CircularProgress signed={signed} total={total} size={84} />
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold">Нийт явц</h2>
+              <h2 className="text-sm font-semibold">
+                {complete ? "Амралт баталгаажсан" : "Нийт явц"}
+              </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {total} хүнээс бүрдэнэ
+                {complete ? `Бүх ${total} хүн зурсан` : `${total} хүнээс бүрдэнэ`}
               </p>
               <p className="mt-2 text-sm tabular-nums">
                 <span className="font-semibold text-foreground">{signed}</span>
