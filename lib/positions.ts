@@ -5,7 +5,6 @@ export const APPROVER_POSITIONS = [
   "Нягтлан бодогч",
   "Няраав",
   "Эмч",
-  "Ээлжийн багш",
   "Захирал",
 ] as const;
 
