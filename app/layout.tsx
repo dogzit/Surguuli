@@ -3,13 +3,16 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { LoadingBar } from "@/components/home/LoadingBar";
+import { ScrollToTop } from "@/components/home/ScrollToTop";
+import { NavigationLoader } from "@/components/home/NavigationLoader";
 import { cn } from "@/lib/utils";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "Амралт баталгаажуулах систем",
-  description: "Багш нарын амралт хянах, баталгаажуулах нэгдсэн систем.",
+  title: "Монгол 3-р сургууль · Албан ёсны хуудас",
+  description: "Монгол 3-р сургуулийн танилцуулга, түүх, виртуал аялал, анги бүлэг, сургалтын чанар, хүүхэд хамгааллын албан ёсны цахим хуудас.",
 };
 
 export default function RootLayout({
@@ -31,7 +34,10 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
+          <LoadingBar />
+          <NavigationLoader />
           {children}
+          <ScrollToTop />
           <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>

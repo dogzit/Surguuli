@@ -35,3 +35,151 @@ model Signature {
   @@index([teacherId])
   @@index([approverId])
 }
+
+model Classroom {
+  id           String   @id @default(cuid())
+  grade        Int
+  section      String   // "А", "Б", "В" ...
+  label        String   // "2А анги"
+  headTeacher  String
+  room         String?
+  capacity     Int      @default(32)
+  studentCount Int      @default(0)
+  status       String   @default("official") // "official" | "draft"
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([grade, section])
+  @@index([grade])
+}
+
+model Announcement {
+  id     String @id @default(cuid())
+  text   String
+  order  Int    @default(0)
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NewsItem {
+  id      String   @id @default(cuid())
+  tag     String
+  title   String
+  excerpt String
+  date    DateTime @default(now())
+  order   Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TourRoom {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  label       String
+  subtitle    String
+  description String
+  icon        String // lucide icon name
+  panoramaUrl String? // 360° equirectangular image URL
+  order       Int     @default(0)
+
+  facts       TourRoomFact[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TourRoomFact {
+  id     String   @id @default(cuid())
+  key    String
+  value  String
+  roomId String
+  order  Int      @default(0)
+
+  room   TourRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+}
+
+model SchoolInfo {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  title     String
+  url       String
+  alt       String?
+  category  String   @default("general")
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Achievement {
+  id        String   @id @default(cuid())
+  name      String
+  grade     String?
+  award     String
+  year      Int
+  category  String   @default("olimpiad")
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Faq {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  title     String
+  date      DateTime
+  time      String?
+  location  String?
+  description String
+  type      String   @default("school")
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  text      String
+  rating    Int      @default(5)
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Club {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  teacher     String?
+  schedule    String?
+  icon        String?
+  order       Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
