@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Briefcase } from "lucide-react";
+import { ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ export default function AdminGate() {
   const submittedRef = useRef(false);
   const [checking, setChecking] = useState(true);
   const [hasAdminRole, setHasAdminRole] = useState(false);
+  const refreshAttempted = useRef(false);
 
   useEffect(() => {
     // Only block the PIN gate if the user's role grants admin access
@@ -38,6 +39,15 @@ export default function AdminGate() {
       return () => clearTimeout(t);
     }
   }, [checking, hasAdminRole]);
+
+  // If the user already has an APPROVER/ADMIN session, try to refresh the
+  // page once so the server-side canAccessAdmin check re-evaluates.
+  useEffect(() => {
+    if (hasAdminRole && !refreshAttempted.current) {
+      refreshAttempted.current = true;
+      router.refresh();
+    }
+  }, [hasAdminRole, router]);
 
   const submit = (value: string) => {
     if (pending) return;
@@ -67,27 +77,20 @@ export default function AdminGate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
-  // ADMIN/APPROVER session exists - show continue button
+  // ADMIN/APPROVER session exists – show spinner while we refresh
   if (hasAdminRole) {
     return (
       <main className="flex items-center justify-center px-4 pb-6 pt-10 sm:pt-14">
         <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Briefcase className="h-5 w-5" />
+            <Loader2 className="h-5 w-5 animate-spin" />
           </div>
           <p className="mt-3 text-sm font-semibold text-foreground">
-            Таны нэвтрэх эрх хүрэлцэхгүй байна
+            Ачааллаж байна...
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Зөвхөн админ эрхтэй хэрэглэгч орох боломжтой
+            Таны эрхийг шалгаж байна
           </p>
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-          >
-            Нүүр хуудас руу буцах
-          </button>
         </div>
       </main>
     );

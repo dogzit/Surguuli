@@ -9,7 +9,7 @@ export default async function AdminLayout({
   const access = await canAccessAdmin();
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen">
       {access.allowed && <AdminSidebar />}
       <main className="flex-1 overflow-auto">
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
