@@ -98,7 +98,7 @@ export default async function AdminDashboard() {
     );
     const signedPositions = new Set(validSigs.map((s) => s.approver.position));
     const signed = signedPositions.size;
-    const mine = validSigs.find((s) => s.approverId === access.position);
+    const mine = validSigs.find((s) => s.approverId === access.userId);
     return {
       id: t.id,
       name: t.name,

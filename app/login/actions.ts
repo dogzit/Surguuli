@@ -61,7 +61,8 @@ export async function loginAs(formData: FormData) {
     await prisma.user.update({ where: { id: user.id }, data: { pin: fresh } });
   }
 
-  cookies().set(SESSION_COOKIE, signSession(user.id), {
+  const store = await cookies();
+  store.set(SESSION_COOKIE, signSession(user.id), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -73,7 +74,7 @@ export async function loginAs(formData: FormData) {
 }
 
 export async function logout() {
-  const store = cookies();
+  const store = await cookies();
   store.delete(SESSION_COOKIE);
   store.delete(ADMIN_COOKIE);
   redirect("/login");

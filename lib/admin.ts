@@ -52,18 +52,18 @@ export async function isAdmin(): Promise<boolean> {
 }
 
 // Check if user can access admin dashboard (admin OR approver with session)
-export async function canAccessAdmin(): Promise<{ allowed: boolean; role: string | null; position: string | null; name: string | null }> {
+export async function canAccessAdmin(): Promise<{ allowed: boolean; role: string | null; userId: string | null; position: string | null; name: string | null }> {
   // Check admin cookie first
   if (await isAdmin()) {
-    return { allowed: true, role: "ADMIN", position: null, name: null };
+    return { allowed: true, role: "ADMIN", userId: null, position: null, name: null };
   }
   // Check approver session
   const { getCurrentUser } = await import("./session");
   const user = await getCurrentUser();
   if (user && (user.role === "APPROVER" || user.role === "ADMIN")) {
-    return { allowed: true, role: user.role, position: user.position, name: user.name };
+    return { allowed: true, role: user.role, userId: user.id, position: user.position, name: user.name };
   }
-  return { allowed: false, role: null, position: null, name: null };
+  return { allowed: false, role: null, userId: null, position: null, name: null };
 }
 
 export async function requireAdmin() {
