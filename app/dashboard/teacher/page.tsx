@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { CheckCircle2, GraduationCap, History } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, GraduationCap, History, ArrowLeft, Home } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { APPROVER_POSITIONS } from "@/lib/positions";
 import SignatureList from "@/components/SignatureList";
@@ -8,7 +9,6 @@ import CircularProgress from "@/components/CircularProgress";
 import ProgressBar from "@/components/ProgressBar";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import HeaderActions from "@/components/HeaderActions";
 
 export default async function TeacherDashboard() {
   const me = await getCurrentUser();
@@ -57,6 +57,16 @@ export default async function TeacherDashboard() {
 
   return (
     <main className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
+      {/* Back to homepage */}
+      <Link
+        href="/"
+        className="mb-6 inline-flex items-center gap-2 rounded-xl border border-border/50 bg-background/50 px-4 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-foreground hover:border-primary/30"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <Home className="h-4 w-4" />
+        Сургуулийн хуудас руу буцах
+      </Link>
+
       <header className="mb-6 flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
