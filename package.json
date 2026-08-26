@@ -9,6 +9,9 @@
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed-students": "tsx prisma/seed-students.ts",
+    "db:import-grade2": "tsx prisma/import-grade2-xlsx.ts",
+    "db:reset-students": "tsx prisma/reset-students.ts",
     "db:make-admin": "tsx prisma/make-admin.ts",
     "postinstall": "prisma generate"
   },

@@ -13,7 +13,7 @@ export default function Logo({ size = 40, className, priority }: Props) {
   return (
     <Image
       src="/logo.png"
-      alt="Монгол 3-р сургууль"
+      alt="Нийслэлийн ерөнхий боловсролын 3-р сургууль"
       width={size}
       height={size}
       priority={priority}

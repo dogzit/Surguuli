@@ -29,7 +29,7 @@ async function main() {
       { name: "Б. Тэмүүлэн", grade: "11", award: "Математикийн улсын олимпиад - Алтан медаль", year: 2025, category: "olimpiad", order: 0 },
       { name: "С. Номин", grade: "10", award: "Байгалийн ухааны улсын олимпиад - Мөнгөн медаль", year: 2025, category: "olimpiad", order: 1 },
       { name: "Д. Билгүүн", grade: "12", award: "Англи хэлний олон улсын тэмцээн - 1-р байр", year: 2025, category: "competition", order: 2 },
-      { name: "Монгол 3-р сургуулийн баг", grade: null, award: "Сагсан бөмбөгийн улсын аварга", year: 2025, category: "sports", order: 3 },
+      { name: "Нийслэлийн ерөнхий боловсролын 3-р сургуулийн баг", grade: null, award: "Сагсан бөмбөгийн улсын аварга", year: 2025, category: "sports", order: 3 },
       { name: "Н. Ариунзаяа", grade: "9", award: "Зохиолын улсын уралдаан - Гран при", year: 2024, category: "academic", order: 4 },
       { name: "Р. Мишээл", grade: "11", award: "Физикийн олон улсын олимпиад - Хүрэл медаль", year: 2024, category: "olimpiad", order: 5 },
       { name: "Х. Хулан", grade: "8", award: "Уран зургийн улсын уралдаан - 1-р байр", year: 2024, category: "competition", order: 6 },

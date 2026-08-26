@@ -1,4 +1,3 @@
-import { ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { SectionShell } from "./SectionShell";
 import type { NewsItemRow } from "@/lib/site-data";
@@ -40,13 +39,6 @@ export function News({ items }: { items: NewsItemRow[] }) {
             <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
               {it.excerpt}
             </p>
-            <a
-              href="#"
-              className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
-            >
-              Дэлгэрэнгүй
-              <ArrowRight className="h-3.5 w-3.5" />
-            </a>
           </Card>
         ))}
         {items.length === 0 && (

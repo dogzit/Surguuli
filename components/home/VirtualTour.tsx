@@ -65,7 +65,7 @@ export function VirtualTour({ rooms }: { rooms: TourRoomRow[] }) {
       tone="light"
       eyebrow="Виртуал аялал"
       title="Сургуулийг өөрөө нэг зочилж үзээрэй"
-      description="360° панорамик зураг ашиглан сургуулийг бүрнэ нь танилцаарай."
+      description="360° панорам зураг ашиглан сургуулийг бүрэн эхээр нь танилцаарай."
     >
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         {/* 360° Viewer */}

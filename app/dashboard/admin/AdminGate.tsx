@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -14,11 +14,28 @@ export default function AdminGate() {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const submittedRef = useRef(false);
+  const [checking, setChecking] = useState(true);
+  const [isApprover, setIsApprover] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 60);
-    return () => clearTimeout(t);
+    // Check if user is an approver with a session
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.position) {
+          setIsApprover(true);
+        }
+        setChecking(false);
+      })
+      .catch(() => setChecking(false));
   }, []);
+
+  useEffect(() => {
+    if (!checking && !isApprover) {
+      const t = setTimeout(() => inputRef.current?.focus(), 60);
+      return () => clearTimeout(t);
+    }
+  }, [checking, isApprover]);
 
   const submit = (value: string) => {
     if (pending) return;
@@ -47,6 +64,40 @@ export default function AdminGate() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
+
+  // Approver with session - show continue button
+  if (isApprover) {
+    return (
+      <main className="flex items-center justify-center px-4 pb-6 pt-10 sm:pt-14">
+        <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Briefcase className="h-5 w-5" />
+          </div>
+          <p className="mt-3 text-sm font-semibold text-foreground">
+            Таны нэвтрэх эрх хүрэлцэхгүй байна
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Зөвхөн админ эрхтэй хэрэглэгч орох боломжтой
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+          >
+            Нүүр хуудас руу буцах
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  if (checking) {
+    return (
+      <main className="flex items-center justify-center px-4 pb-6 pt-10 sm:pt-14">
+        <div className="text-sm text-muted-foreground">Шалгаж байна...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex items-center justify-center px-4 pb-6 pt-10 sm:pt-14">

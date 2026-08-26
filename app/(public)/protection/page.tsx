@@ -3,10 +3,12 @@ import { Protection } from "@/components/home/Protection";
 import { loadSchoolInfo } from "@/lib/site-data";
 
 export const metadata: Metadata = {
-  title: "Хүүхэд хамгаалал · Монгол 3-р сургууль",
+  title: "Хүүхэд хамгаалал · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
   description:
     "Хүүхдийн эрх, аюулгүй байдлыг хамгаалах бодлого, эрсдэлийн үнэлгээ, албан ёсны хариуцлагатай ажилтан.",
 };
+
+export const revalidate = 300;
 
 export default async function ProtectionPage() {
   const info = await loadSchoolInfo();

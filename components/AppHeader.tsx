@@ -24,7 +24,7 @@ export default function AppHeader() {
             </span>
           )}
           <span className="hidden truncate text-sm font-semibold tracking-tight sm:inline sm:text-base">
-            Монгол 3-р сургууль
+            Нийслэлийн ерөнхий боловсролын 3-р сургууль
           </span>
         </Link>
         <div className="shrink-0">

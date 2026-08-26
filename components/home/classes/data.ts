@@ -47,6 +47,15 @@ export interface ClassroomInput {
   capacity: number;
   studentCount: number;
   status: string;
+  students?: Array<{
+    id: string;
+    code: string;
+    firstName: string;
+    lastName: string;
+    gender: "M" | "F";
+    attendance: number;
+    gpa: number;
+  }>;
 }
 
 export function hydrateGrade2(rows: ClassroomInput[]): Classroom[] {
@@ -60,12 +69,18 @@ export function hydrateGrade2(rows: ClassroomInput[]): Classroom[] {
       capacity: r.capacity,
       createdAt: "2025-09-01",
       status: r.status === "draft" ? "draft" : "official",
-      students: buildRoster(`2${r.section}`, r.studentCount, 3 + idx * 40),
+      students:
+        r.students && r.students.length > 0
+          ? r.students.map((s) => ({
+              id: s.id,
+              code: s.code,
+              lastName: s.lastName,
+              firstName: s.firstName,
+              gender: s.gender,
+              attendance: s.attendance,
+              gpa: s.gpa,
+            }))
+          : buildRoster(`2${r.section}`, r.studentCount, 3 + idx * 40),
     }));
 }
 
-export const NEW_SECTION_TEACHERS = [
-  "А. Дэлгэрмөрөн", "Ц. Батзориг", "Н. Сэлэнгэ", "Б. Ариунтуяа", "Д. Мөнхбат",
-];
-
-export const NEW_SECTION_ROOMS = ["210 тоот", "212 тоот", "215 тоот", "218 тоот"];

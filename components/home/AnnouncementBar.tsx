@@ -12,19 +12,21 @@ const DISMISS_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
 export function AnnouncementBar({ items }: Props) {
   const [current, setCurrent] = useState(0);
-  const [dismissed, setDismissed] = useState(() => {
-    if (typeof window === "undefined" || items.length === 0) return false;
+  const [dismissed, setDismissed] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // Read localStorage after mount to avoid SSR/hydration mismatch
+  useEffect(() => {
+    if (items.length === 0) return;
     const stored = localStorage.getItem("announcement_dismissed_at");
-    if (!stored) return false;
+    if (!stored) return;
     const elapsed = Date.now() - Number(stored);
     if (elapsed >= DISMISS_DURATION_MS) {
-      // 5 minutes passed — clear and show again
       localStorage.removeItem("announcement_dismissed_at");
-      return false;
+      return;
     }
-    return true;
-  });
-  const [isPaused, setIsPaused] = useState(false);
+    setDismissed(true);
+  }, [items.length]);
 
   const dismiss = () => {
     setDismissed(true);
@@ -39,12 +41,21 @@ export function AnnouncementBar({ items }: Props) {
     setCurrent((c) => (c - 1 + items.length) % items.length);
   }, [items.length]);
 
+  // Pause auto-rotate when tab is hidden to avoid wasted work
+  const [tabHidden, setTabHidden] = useState(false);
+  useEffect(() => {
+    const onVis = () => setTabHidden(document.hidden);
+    document.addEventListener("visibilitychange", onVis);
+    onVis();
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   // Auto-rotate
   useEffect(() => {
-    if (dismissed || items.length === 0 || isPaused) return;
+    if (dismissed || items.length <= 1 || isPaused || tabHidden) return;
     const t = setInterval(next, 4000);
     return () => clearInterval(t);
-  }, [next, dismissed, items.length, isPaused]);
+  }, [next, dismissed, items.length, isPaused, tabHidden]);
 
   // Auto-reappear after 5 minutes
   useEffect(() => {
@@ -75,6 +86,10 @@ export function AnnouncementBar({ items }: Props) {
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
           className="overflow-hidden border-b border-primary/10 bg-gradient-to-r from-primary/[0.05] via-primary/[0.02] to-primary/[0.05]"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          onFocusCapture={() => setIsPaused(true)}
+          onBlurCapture={() => setIsPaused(false)}
         >
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 sm:px-6 lg:px-8">
             {/* Badge */}

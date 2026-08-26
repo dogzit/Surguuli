@@ -15,7 +15,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. /dashboard/admin өөрийн PIN gate-тэй учир middleware-аар шалгахгүй
+  // 2. /dashboard/admin нь өөрийн gate-тэй учир middleware-аар шалгахгүй
+  // (admin cookie эсвэл session cookie - аль нь ч байж болно)
   if (pathname.startsWith("/dashboard/admin")) {
     return NextResponse.next();
   }
@@ -27,9 +28,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 4. Хэрэв аль хэдийн нэвтэрсэн бөгөөд login хуудас руу орох гэж байвал -> dashboard руу шид
+  // 4. Хэрэв аль хэдийн нэвтэрсэн бөгөөд login хуудас руу орох гэж байвал -> нүүр хуудас руу шид
   if (pathname === "/login" && hasSession) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
   return NextResponse.next();

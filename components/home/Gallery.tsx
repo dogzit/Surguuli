@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ZoomIn, ImageIcon } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { ChevronLeft, ChevronRight, X, ZoomIn, ImageIcon } from "lucide-react";
 import { SectionShell } from "./SectionShell";
 import type { GalleryImageRow } from "@/lib/site-data";
 
@@ -26,9 +25,44 @@ const fade = {
 
 export function Gallery({ images }: { images: GalleryImageRow[] }) {
   const [cat, setCat] = useState("all");
-  const [lightbox, setLightbox] = useState<GalleryImageRow | null>(null);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
-  const filtered = cat === "all" ? images : images.filter((i) => i.category === cat);
+  const filtered = useMemo(
+    () => (cat === "all" ? images : images.filter((i) => i.category === cat)),
+    [cat, images],
+  );
+
+  const lightbox = lightboxIdx !== null ? filtered[lightboxIdx] ?? null : null;
+
+  const closeLightbox = () => setLightboxIdx(null);
+  const stepLightbox = (delta: number) =>
+    setLightboxIdx((i) =>
+      i === null || filtered.length === 0
+        ? i
+        : (i + delta + filtered.length) % filtered.length,
+    );
+
+  // Keyboard: Escape closes, arrows navigate, lock body scroll
+  useEffect(() => {
+    if (lightboxIdx === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeLightbox();
+      else if (e.key === "ArrowRight") stepLightbox(1);
+      else if (e.key === "ArrowLeft") stepLightbox(-1);
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [lightboxIdx]);
+
+  // If category changes while lightbox is open, close it (index no longer meaningful)
+  useEffect(() => {
+    setLightboxIdx(null);
+  }, [cat]);
 
   return (
     <SectionShell
@@ -74,8 +108,9 @@ export function Gallery({ images }: { images: GalleryImageRow[] }) {
             >
               <button
                 type="button"
-                onClick={() => setLightbox(img)}
-                className="group relative aspect-square w-full overflow-hidden rounded-xl border border-border bg-muted"
+                onClick={() => setLightboxIdx(i)}
+                aria-label={`${img.title} — томруулж үзэх`}
+                className="group relative aspect-square w-full overflow-hidden rounded-xl border border-border bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <img
                   src={img.url}
@@ -98,13 +133,30 @@ export function Gallery({ images }: { images: GalleryImageRow[] }) {
       <AnimatePresence>
         {lightbox && (
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={lightbox.title}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-            onClick={() => setLightbox(null)}
+            onClick={closeLightbox}
           >
+            {filtered.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  stepLightbox(-1);
+                }}
+                aria-label="Өмнөх зураг"
+                className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-4"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            )}
             <motion.div
+              key={lightbox.id}
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -118,13 +170,34 @@ export function Gallery({ images }: { images: GalleryImageRow[] }) {
               />
               <button
                 type="button"
-                onClick={() => setLightbox(null)}
-                className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background text-foreground shadow-lg"
+                onClick={closeLightbox}
+                aria-label="Хаах"
+                className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background text-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <X className="h-4 w-4" />
               </button>
-              <div className="mt-2 text-center text-sm text-white/80">{lightbox.title}</div>
+              <div className="mt-2 text-center text-sm text-white/80">
+                {lightbox.title}
+                {filtered.length > 1 && (
+                  <span className="ml-2 tabular-nums text-white/60">
+                    {(lightboxIdx ?? 0) + 1} / {filtered.length}
+                  </span>
+                )}
+              </div>
             </motion.div>
+            {filtered.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  stepLightbox(1);
+                }}
+                aria-label="Дараах зураг"
+                className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-4"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

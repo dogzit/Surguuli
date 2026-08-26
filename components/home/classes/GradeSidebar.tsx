@@ -1,7 +1,6 @@
 "use client";
 
 import { Lock } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface GradeSidebarProps {
@@ -10,92 +9,101 @@ interface GradeSidebarProps {
 }
 
 const GRADES = Array.from({ length: 12 }, (_, i) => i + 1);
+const ACTIVE_GRADES = new Set([2]);
 
 export function GradeSidebar({ activeGrade, onSelect }: GradeSidebarProps) {
   return (
-    <aside className="w-full flex-shrink-0 lg:w-64">
-      <Card className="overflow-hidden p-0">
-        <div className="border-b border-border bg-muted/40 px-4 py-3">
-          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Ангилал
-          </div>
-          <div className="mt-0.5 text-sm font-semibold text-foreground">
-            Ангиудын жагсаалт
-          </div>
-        </div>
-        <ul className="divide-y divide-border">
-          {GRADES.map((grade) => {
-            const isActive = grade === activeGrade;
-            const isSpecial = grade === 2;
-            return (
-              <li key={grade}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(grade)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors",
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-foreground hover:bg-accent",
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        "flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold tabular-nums",
-                        isActive
-                          ? "bg-primary/20 text-primary"
-                          : "bg-muted text-foreground",
-                      )}
-                    >
-                      {grade}
-                    </span>
-                    <div className="leading-tight">
-                      <div className="text-sm font-medium">{grade}-р анги</div>
-                      <div
-                        className={cn(
-                          "text-[10px] uppercase tracking-widest",
-                          isActive ? "text-primary/70" : "text-muted-foreground",
-                        )}
-                      >
-                        {isSpecial ? "Идэвхтэй" : "Битүүмжилсэн"}
-                      </div>
-                    </div>
-                  </div>
-                  {isSpecial ? (
-                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-                      LIVE
-                    </span>
-                  ) : (
-                    <Lock
-                      className={cn(
-                        "h-3.5 w-3.5",
-                        isActive ? "text-primary/70" : "text-muted-foreground",
-                      )}
-                    />
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        <div className="border-t border-border bg-muted/40 px-4 py-2.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-          Нийт 12 ангилал · Баталгаажсан
-        </div>
-      </Card>
+    <aside className="lg:w-52 lg:flex-shrink-0">
+      <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        Ангилал
+      </div>
 
-      <Card className="mt-4 p-4">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Хандалт
-        </div>
-        <div className="mt-1 text-sm font-medium text-foreground">
-          Зөвхөн харах горим
-        </div>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Битүүмжилсэн ангиудын мэдээллийг өөрчлөх эрх нь Захиргааны зөвлөлд
-          бүртгэгдсэн.
-        </p>
-      </Card>
+      {/* Mobile: horizontal scroll */}
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+        {GRADES.map((grade) => {
+          const isActive = grade === activeGrade;
+          const isLocked = !ACTIVE_GRADES.has(grade);
+          return (
+            <button
+              key={grade}
+              type="button"
+              disabled={isLocked}
+              onClick={() => !isLocked && onSelect(grade)}
+              className={cn(
+                "flex-shrink-0 rounded-lg border px-3.5 py-2 text-sm font-medium tabular-nums transition-colors",
+                isActive
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : isLocked
+                    ? "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground/50"
+                    : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
+              )}
+            >
+              {grade}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Desktop: vertical list */}
+      <ul className="mt-3 hidden space-y-0.5 lg:block">
+        {GRADES.map((grade) => {
+          const isActive = grade === activeGrade;
+          const isLocked = !ACTIVE_GRADES.has(grade);
+          return (
+            <li key={grade}>
+              <button
+                type="button"
+                disabled={isLocked}
+                onClick={() => !isLocked && onSelect(grade)}
+                className={cn(
+                  "group flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : isLocked
+                      ? "cursor-not-allowed text-muted-foreground/40 hover:bg-muted/30"
+                      : "text-foreground hover:bg-muted",
+                )}
+              >
+                <span className="flex items-baseline gap-1.5">
+                  <span className="tabular-nums font-medium">{grade}</span>
+                  <span
+                    className={cn(
+                      "text-xs",
+                      isActive
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    -р анги
+                  </span>
+                </span>
+                {isLocked ? (
+                  <Lock
+                    className={cn(
+                      "h-3 w-3",
+                      isActive
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground/30",
+                    )}
+                  />
+                ) : (
+                  <span
+                    aria-label="Идэвхтэй"
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      isActive ? "bg-primary-foreground" : "bg-emerald-500",
+                    )}
+                  />
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="mt-5 hidden text-xs leading-relaxed text-muted-foreground lg:block">
+        Одоогоор 2-р ангийн сурагчдын дэлгэрэнгүй нээлттэй байна.
+      </p>
     </aside>
   );
 }

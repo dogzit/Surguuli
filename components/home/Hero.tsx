@@ -16,12 +16,27 @@ const fade = {
   }),
 };
 
-export function Hero({ students, staff }: { students: string; staff: string }) {
+interface HeroProps {
+  students: string;
+  staff: string;
+  foundedYear?: string;
+  principalName?: string;
+  principalQuote?: string;
+}
+
+export function Hero({
+  students,
+  staff,
+  foundedYear = "1921",
+  principalName = "Хоролгарав",
+  principalQuote = "Хүүхэд бүр эрдэм номын гэрлээр гэрэлтэж, өөрийгөө болон нийгмээ хүндэтгэж сурах — энэ бол бидний сургалтын тэргүүлэх зорилго.",
+}: HeroProps) {
   const STATS = [
-    { k: "1921", v: "Байгуулагдсан он" },
+    { k: foundedYear, v: "Байгуулагдсан он" },
     { k: students, v: "Сурагч" },
     { k: staff, v: "Багш, ажилтан" },
   ];
+  const principalInitial = principalName.trim().charAt(0) || "Х";
 
   return (
     <section
@@ -57,7 +72,7 @@ export function Hero({ students, staff }: { students: string; staff: string }) {
             variants={fade}
             className="mt-5 text-3xl font-bold tracking-tight text-foreground md:text-5xl"
           >
-            Монгол 3-р сургууль
+            Нийслэлийн ерөнхий боловсролын 3-р сургууль
           </motion.h1>
           <motion.p
             custom={2}
@@ -66,8 +81,8 @@ export function Hero({ students, staff }: { students: string; staff: string }) {
             variants={fade}
             className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base"
           >
-            <span className="font-semibold text-foreground">Монгол 3-р сургууль</span>{" "}
-            нь 1921 оны Ардын хувьсгалийн дараа байгуулагдсан Монголын анхны
+            <span className="font-semibold text-foreground">Нийслэлийн ерөнхий боловсролын 3-р сургууль</span>{" "}
+            нь 1921 оны Ардын хувьсгалын дараа байгуулагдсан Монголын анхны
             олон нийтийн сургуулиудын нэг бөгөөд Сүхбаатар дүүрэг, 10-р хорооны
             нутаг дэвсгэрт өнөөдрийг хүртэл үйл ажиллагаагаа явуулж байна.
           </motion.p>
@@ -132,16 +147,15 @@ export function Hero({ students, staff }: { students: string; staff: string }) {
               </span>
             </div>
             <blockquote className="mt-4 text-base italic leading-relaxed text-foreground md:text-lg">
-              «Хүүхэд бүр эрдэм номын гэрлээр гэрэлтэж, өөрийгөө болон нийгмээ
-              хүндэтгэж сурах — энэ бол бидний сургалтын тэргүүлэх зорилго.»
+              «{principalQuote}»
             </blockquote>
             <div className="mt-5 flex items-center gap-3 border-t border-border pt-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                Х
+                {principalInitial}
               </div>
               <div>
                 <div className="text-sm font-semibold text-foreground">
-                  Хоролгарав
+                  {principalName}
                 </div>
                 <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
                   Сургуулийн захирал

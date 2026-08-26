@@ -1,117 +1,173 @@
-import { getCurrentUser } from "@/lib/session";
-import { redirect } from "next/navigation";
-import { Briefcase, CheckCircle2, Clock, Users, FileCheck, LayoutDashboard } from "lucide-react"; // FileCheck нэмэв
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { ACCOUNTANT_POSITION, APPROVER_POSITIONS } from "@/lib/positions";
-import { StatCard, StatGrid } from "@/components/StatCard";
-import { Button } from "@/components/ui/button";
-import TeacherTable, { type TeacherRow } from "./TeacherTable";
+import { motion } from "framer-motion";
+import {
+  ShieldCheck,
+  FileSignature,
+  Home,
+  Loader2,
+  LogOut,
+  Briefcase,
+} from "lucide-react";
+import Logo from "@/components/Logo";
+import { logout } from "@/app/login/actions";
 
-export default async function ApproverDashboard() {
-  const me = await getCurrentUser();
-  if (!me) redirect("/login");
-  if (me.role !== "APPROVER") redirect("/dashboard/teacher");
+interface UserInfo {
+  name: string;
+  position: string;
+}
 
-  const teachers = await prisma.user.findMany({
-    where: { role: "TEACHER" },
-    include: {
-      managedSignatures: {
-        select: {
-          approverId: true,
-          note: true,
-          approver: { select: { position: true } },
-        },
-      },
-    },
-    orderBy: [{ position: "asc" }, { name: "asc" }],
-  });
+const fade = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] as const },
+  }),
+};
 
-  const total = APPROVER_POSITIONS.length;
-  const validPositions = new Set<string>(APPROVER_POSITIONS);
+export default function ApproverLanding() {
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const rows: TeacherRow[] = teachers.map((t) => {
-    const validSigs = t.managedSignatures.filter((s) =>
-      validPositions.has(s.approver.position),
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((data) => {
+        setUser(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <div className="relative">
+            <motion.div
+              className="h-16 w-16 rounded-2xl bg-primary/10"
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute inset-0 flex items-center justify-center"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            >
+              <Loader2 className="h-6 w-6 text-primary" />
+            </motion.div>
+          </div>
+          <p className="text-sm text-muted-foreground">Ачааллаж байна...</p>
+        </motion.div>
+      </div>
     );
-    const signedSet = new Set(validSigs.map((s) => s.approver.position));
-    const signed = signedSet.size;
-    const mine = validSigs.find((s) => s.approverId === me.id);
-    return {
-      id: t.id,
-      name: t.name,
-      position: t.position,
-      signed,
-      alreadySigned: !!mine,
-      myNote: mine?.note ?? null,
-      complete: signed >= total,
-    };
-  });
-
-  // Эрэмбэлэлт: Зурсан багш нарыг хамгийн дээд талд гаргах
-  const sortedRows = [...rows].sort((a, b) => {
-    if (a.alreadySigned === b.alreadySigned) return 0;
-    return a.alreadySigned ? -1 : 1;
-  });
-
-  const signedByMe = rows.filter((r) => r.alreadySigned).length;
-  const fullyCompleted = rows.filter((r) => r.complete).length; // Бүрэн баталгаажсан багш нар
-  const remaining = rows.length - signedByMe;
-
-  const isAccountant = me.position === ACCOUNTANT_POSITION;
+  }
 
   return (
-    <main className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Briefcase className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-              {me.name}
-            </h1>
-            <p className="text-sm text-muted-foreground">{me.position}</p>
-          </div>
+    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="mb-10 text-center"
+      >
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 shadow-lg">
+          <Logo size={56} priority />
         </div>
-        {isAccountant && (
-          <Link href="/dashboard/accountant">
-            <Button variant="outline" size="sm">
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              Хяналтын самбар руу буцах
-            </Button>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          {user?.name || "Баталгаажуулагч"}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {user?.position || "Албан тушаал"}
+        </p>
+      </motion.div>
+
+      {/* Choice cards */}
+      <div className="grid w-full max-w-md gap-4">
+        <motion.div custom={0} variants={fade} initial="hidden" animate="visible">
+          <Link
+            href="/dashboard/admin"
+            className="group flex items-center gap-4 rounded-2xl border border-border/50 bg-card p-5 shadow-sm transition-all hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500/20 to-red-500/5 text-red-500 shadow-sm transition-transform group-hover:scale-105">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <div className="text-base font-semibold text-foreground">
+                Админ хяналт
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Системийн удирдлага, тоо баримт
+              </div>
+            </div>
           </Link>
-        )}
-      </header>
+        </motion.div>
 
-      <StatGrid>
-        <StatCard
-          icon={<Users className="h-4 w-4" />}
-          label="Нийт багш"
-          value={rows.length}
-          tone="default"
-        />
-        <StatCard
-          icon={<FileCheck className="h-4 w-4" />}
-          label="Бүрэн баталгаажсан"
-          value={fullyCompleted}
-          tone="success"
-        />
-        <StatCard
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          label="Таны зурсан"
-          value={signedByMe}
-          tone="success"
-        />
-        <StatCard
-          icon={<Clock className="h-4 w-4" />}
-          label="Зураагүй багш"
-          value={remaining}
-          tone="warning"
-        />
-      </StatGrid>
+        <motion.div custom={1} variants={fade} initial="hidden" animate="visible">
+          <Link
+            href="/dashboard/approver/signatures"
+            className="group flex items-center gap-4 rounded-2xl border border-border/50 bg-card p-5 shadow-sm transition-all hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 text-emerald-500 shadow-sm transition-transform group-hover:scale-105">
+              <FileSignature className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <div className="text-base font-semibold text-foreground">
+                Гарын үсэг
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Багш нарын гарын үсэг зурах
+              </div>
+            </div>
+          </Link>
+        </motion.div>
 
-      <TeacherTable teachers={sortedRows} total={total} />
-    </main>
+        <motion.div custom={2} variants={fade} initial="hidden" animate="visible">
+          <Link
+            href="/"
+            className="group flex items-center gap-4 rounded-2xl border border-border/50 bg-card p-5 shadow-sm transition-all hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-500/5 text-blue-500 shadow-sm transition-transform group-hover:scale-105">
+              <Home className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <div className="text-base font-semibold text-foreground">
+                Сургуулийн хуудас
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Нүүр хуудас руу очих
+              </div>
+            </div>
+          </Link>
+        </motion.div>
+      </div>
+
+      {/* Logout */}
+      <motion.div
+        custom={3}
+        variants={fade}
+        initial="hidden"
+        animate="visible"
+        className="mt-8"
+      >
+        <form action={logout}>
+          <button
+            type="submit"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            <LogOut className="h-4 w-4" />
+            Гарах
+          </button>
+        </form>
+      </motion.div>
+    </div>
   );
 }

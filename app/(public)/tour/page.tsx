@@ -3,10 +3,12 @@ import { VirtualTour } from "@/components/home/VirtualTour";
 import { loadTourRooms } from "@/lib/site-data";
 
 export const metadata: Metadata = {
-  title: "Виртуал аялал · Монгол 3-р сургууль",
+  title: "Виртуал аялал · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
   description:
     "Сургуулийг өөрөө нэг зочилж үзээрэй — зогсоол бүр дээрх орчин үеийн боловсролын байгууламжтай танилцаарай.",
 };
+
+export const revalidate = 300;
 
 export default async function TourPage() {
   const rooms = await loadTourRooms();

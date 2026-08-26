@@ -61,12 +61,10 @@ export async function getCurrentUser() {
 }
 
 export function roleHomePath(role: string, position?: string | null): string {
-  if (role === "ADMIN") return "/dashboard/admin";
-  if (role === "APPROVER") {
-    if (position === ACCOUNTANT_POSITION) return "/dashboard/accountant";
-    return "/dashboard/approver";
-  }
-  return "/dashboard/teacher";
+  // Both ADMIN and APPROVER go to admin dashboard
+  if (role === "ADMIN" || role === "APPROVER") return "/dashboard/admin";
+  // Teachers go to homepage
+  return "/";
 }
 
 export async function requireUser(role?: "APPROVER" | "TEACHER") {

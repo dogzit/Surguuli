@@ -1,6 +1,3 @@
-import AppHeader from "@/components/AppHeader";
-import Footer from "@/components/Footer";
-
 export default function DashboardLayout({
   children,
 }: {
@@ -8,11 +5,9 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <AppHeader />
       <div className="flex-1">
         {children}
       </div>
-      <Footer />
     </div>
   );
 }

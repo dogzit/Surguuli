@@ -10,14 +10,19 @@ import {
   BarChart3,
   Activity,
 } from "lucide-react";
-import { isAdmin } from "@/lib/admin";
+import { canAccessAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { APPROVER_POSITIONS } from "@/lib/positions";
 import AdminGate from "./AdminGate";
 import RecentActivity from "./RecentActivity";
+import ApproverTeacherTable from "./ApproverTeacherTable";
 
 export default async function AdminDashboard() {
-  if (!(await isAdmin())) return <AdminGate />;
+  const access = await canAccessAdmin();
+  if (!access.allowed) return <AdminGate />;
+
+  const isAdmin = access.role === "ADMIN";
+  const isApprover = access.role === "APPROVER";
 
   const [users, signatures, classrooms, announcements, newsItems, gallery, achievements, faqs, events] =
     await Promise.all([
@@ -86,120 +91,163 @@ export default async function AdminDashboard() {
     approver: s.approver,
   }));
 
+  // Build teacher rows for approver table
+  const teacherRows = teachers.map((t) => {
+    const validSigs = signatures.filter(
+      (s) => s.teacherId === t.id && validPos.has(s.approver.position),
+    );
+    const signedPositions = new Set(validSigs.map((s) => s.approver.position));
+    const signed = signedPositions.size;
+    const mine = validSigs.find((s) => s.approverId === access.position);
+    return {
+      id: t.id,
+      name: t.name,
+      position: t.position,
+      signed,
+      alreadySigned: !!mine,
+      myNote: mine?.note ?? null,
+      complete: signed >= totalPositions,
+    };
+  });
+
+  // Sort: already signed first
+  const sortedTeacherRows = [...teacherRows].sort((a, b) => {
+    if (a.alreadySigned === b.alreadySigned) return 0;
+    return a.alreadySigned ? -1 : 1;
+  });
+
   return (
     <>
-          {/* Header */}
-          <div className="mb-8 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-sm">
-                <ShieldAlert className="h-6 w-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-sm text-muted-foreground">
-                  Бүх системийн удирдлага · {new Date().toLocaleDateString("mn-MN", { year: "numeric", month: "long", day: "numeric" })}
-                </p>
-              </div>
-            </div>
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-sm">
+            <ShieldAlert className="h-6 w-6" />
           </div>
-
-          {/* ── Primary Stats ── */}
-          <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatCard
-              icon={<Users className="h-5 w-5" />}
-              label="Нийт багш"
-              value={teachers.length}
-              color="blue"
-              detail={`${approvers.length} баталгаажуулагч`}
-            />
-            <StatCard
-              icon={<FileSignature className="h-5 w-5" />}
-              label="Гарын үсэг"
-              value={signatures.length}
-              color="green"
-              detail={`${avgSigs} дундаж/багш`}
-            />
-            <StatCard
-              icon={<GraduationCap className="h-5 w-5" />}
-              label="Ангиуд"
-              value={classrooms.length}
-              color="cyan"
-              detail={`${totalStudents} сурагч`}
-            />
-            <StatCard
-              icon={<TrendingUp className="h-5 w-5" />}
-              label="Баталгаажуулалт"
-              value={`${completionRate}%`}
-              color="purple"
-              detail={`${completedTeachers}/${teachers.length} багш`}
-            />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {isAdmin ? "Dashboard" : `Сайн байна уу, ${access.name}`}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isAdmin
+                ? `Бүх системийн удирдлага · ${new Date().toLocaleDateString("mn-MN", { year: "numeric", month: "long", day: "numeric" })}`
+                : access.position}
+            </p>
           </div>
+        </div>
+      </div>
 
-          {/* ── Secondary Stats ── */}
-          <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
-            <MiniStat
-              icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-              label="Баталгаажсан"
-              value={completedTeachers}
-              bg="bg-emerald-50 dark:bg-emerald-500/10"
-            />
-            <MiniStat
-              icon={<Clock className="h-4 w-4 text-amber-500" />}
-              label="Үргэлжилж буй"
-              value={inProgressTeachers}
-              bg="bg-amber-50 dark:bg-amber-500/10"
-            />
-            <MiniStat
-              icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
-              label="Эхлээгүй"
-              value={notStarted}
-              bg="bg-muted/50"
-            />
-            <MiniStat
-              icon={<BarChart3 className="h-4 w-4 text-cyan-500" />}
-              label="Сурагчид"
-              value={totalStudents}
-              bg="bg-cyan-50 dark:bg-cyan-500/10"
-              detail={`${occupancyRate}%`}
-            />
-            <MiniStat
-              icon={<Activity className="h-4 w-4 text-violet-500" />}
-              label="7 хоногт"
-              value={recentSigs.length}
-              bg="bg-violet-50 dark:bg-violet-500/10"
-              detail="шинэ үсэг"
-            />
+      {/* ── Primary Stats ── */}
+      <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard
+          icon={<Users className="h-5 w-5" />}
+          label="Нийт багш"
+          value={teachers.length}
+          color="blue"
+          detail={`${approvers.length} баталгаажуулагч`}
+        />
+        <StatCard
+          icon={<FileSignature className="h-5 w-5" />}
+          label="Гарын үсэг"
+          value={signatures.length}
+          color="green"
+          detail={`${avgSigs} дундаж/багш`}
+        />
+        <StatCard
+          icon={<GraduationCap className="h-5 w-5" />}
+          label="Ангиуд"
+          value={classrooms.length}
+          color="cyan"
+          detail={`${totalStudents} сурагч`}
+        />
+        <StatCard
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="Баталгаажуулалт"
+          value={`${completionRate}%`}
+          color="purple"
+          detail={`${completedTeachers}/${teachers.length} багш`}
+        />
+      </div>
+
+      {/* ── Secondary Stats ── */}
+      <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
+        <MiniStat
+          icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+          label="Баталгаажсан"
+          value={completedTeachers}
+          bg="bg-emerald-50 dark:bg-emerald-500/10"
+        />
+        <MiniStat
+          icon={<Clock className="h-4 w-4 text-amber-500" />}
+          label="Үргэлжилж буй"
+          value={inProgressTeachers}
+          bg="bg-amber-50 dark:bg-amber-500/10"
+        />
+        <MiniStat
+          icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
+          label="Эхлээгүй"
+          value={notStarted}
+          bg="bg-muted/50"
+        />
+        <MiniStat
+          icon={<BarChart3 className="h-4 w-4 text-cyan-500" />}
+          label="Сурагчид"
+          value={totalStudents}
+          bg="bg-cyan-50 dark:bg-cyan-500/10"
+          detail={`${occupancyRate}%`}
+        />
+        <MiniStat
+          icon={<Activity className="h-4 w-4 text-violet-500" />}
+          label="7 хоногт"
+          value={recentSigs.length}
+          bg="bg-violet-50 dark:bg-violet-500/10"
+          detail="шинэ үсэг"
+        />
+      </div>
+
+      {/* ── Completion Progress ── */}
+      <div className="mb-8 rounded-2xl border border-border/50 bg-card p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Баталгаажуулалтын явц</h2>
+          <span className="text-2xl font-bold text-primary">{completionRate}%</span>
+        </div>
+        <div className="mb-4 h-3 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+            style={{ width: `${completionRate}%` }}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{completedTeachers}</div>
+            <div className="text-xs text-muted-foreground">Баталгаажсан</div>
           </div>
-
-          {/* ── Completion Progress ── */}
-          <div className="mb-8 rounded-2xl border border-border/50 bg-card p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Баталгаажуулалтын явц</h2>
-              <span className="text-2xl font-bold text-primary">{completionRate}%</span>
-            </div>
-            <div className="mb-4 h-3 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
-                style={{ width: `${completionRate}%` }}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{completedTeachers}</div>
-                <div className="text-xs text-muted-foreground">Баталгаажсан</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-amber-600 dark:text-amber-400">{inProgressTeachers}</div>
-                <div className="text-xs text-muted-foreground">Үргэлжилж буй</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-muted-foreground">{notStarted}</div>
-                <div className="text-xs text-muted-foreground">Эхлээгүй</div>
-              </div>
-            </div>
+          <div>
+            <div className="text-lg font-bold text-amber-600 dark:text-amber-400">{inProgressTeachers}</div>
+            <div className="text-xs text-muted-foreground">Үргэлжилж буй</div>
           </div>
+          <div>
+            <div className="text-lg font-bold text-muted-foreground">{notStarted}</div>
+            <div className="text-xs text-muted-foreground">Эхлээгүй</div>
+          </div>
+        </div>
+      </div>
 
-          {/* ── Content Overview ── */}
+      {/* ── Teacher Table (for approvers) ── */}
+      {isApprover && (
+        <div className="mb-8">
+          <h2 className="mb-4 text-base font-semibold">Багш нарын гарын үсэг</h2>
+          <ApproverTeacherTable
+            teachers={sortedTeacherRows}
+            total={totalPositions}
+            approverPosition={access.position ?? ""}
+          />
+        </div>
+      )}
+
+      {/* ── Content Overview (admin only) ── */}
+      {isAdmin && (
+        <>
           <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
             <ContentStat label="Зарлал" count={announcements.length} color="bg-blue-500/10 text-blue-500" />
             <ContentStat label="Мэдээ" count={newsItems.length} color="bg-violet-500/10 text-violet-500" />
@@ -222,6 +270,8 @@ export default async function AdminDashboard() {
               </div>
             </div>
           </div>
+        </>
+      )}
     </>
   );
 }

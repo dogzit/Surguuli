@@ -3,10 +3,12 @@ import { Quality } from "@/components/home/Quality";
 import { loadSchoolInfo } from "@/lib/site-data";
 
 export const metadata: Metadata = {
-  title: "Сургалтын чанар · Монгол 3-р сургууль",
+  title: "Сургалтын чанар · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
   description:
     "Улсын болон олон улсын үнэлгээний тоо баримт, PISA, улсын шалгалтын үр дүн.",
 };
+
+export const revalidate = 300;
 
 export default async function QualityPage() {
   const info = await loadSchoolInfo();

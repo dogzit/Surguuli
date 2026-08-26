@@ -3,10 +3,12 @@ import { Contact } from "@/components/home/Contact";
 import { loadSchoolInfo } from "@/lib/site-data";
 
 export const metadata: Metadata = {
-  title: "Холбоо барих · Монгол 3-р сургууль",
+  title: "Холбоо барих · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
   description:
     "Албан бичиг, сурагчийн бүртгэл, эцэг эхийн хүсэлт болон бусад асуудлаар холбогдох.",
 };
+
+export const revalidate = 300;
 
 export default async function ContactPage() {
   const info = await loadSchoolInfo();

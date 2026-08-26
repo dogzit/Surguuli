@@ -61,4 +61,34 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+
+  /* Skip-to-content link, visually hidden until keyboard focus */
+  .skip-to-content {
+    @apply sr-only;
+  }
+  .skip-to-content:focus {
+    @apply not-sr-only fixed left-4 top-4 z-[200] rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg;
+  }
+}
+
+/* Remove the up/down spinner on <input type="number"> across browsers so
+   admin forms accept free keyboard input without the wheel/arrow controls. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

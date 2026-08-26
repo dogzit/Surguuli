@@ -1,5 +1,16 @@
 import { prisma } from "@/lib/prisma";
 
+export interface StudentRow {
+  id: string;
+  code: string;
+  firstName: string;
+  lastName: string;
+  gender: "M" | "F";
+  attendance: number;
+  gpa: number;
+  classroomId: string;
+}
+
 export interface ClassroomRow {
   id: string;
   grade: number;
@@ -10,6 +21,7 @@ export interface ClassroomRow {
   capacity: number;
   studentCount: number;
   status: string;
+  students?: StudentRow[];
 }
 
 export interface GradeSummary {
@@ -23,9 +35,20 @@ export interface GradeSummary {
   status: "sealed" | "active";
 }
 
-export async function loadClassrooms(): Promise<ClassroomRow[]> {
+export async function loadClassrooms(options?: {
+  includeStudentsForGrades?: number[];
+}): Promise<ClassroomRow[]> {
+  const grades = options?.includeStudentsForGrades;
   const rows = await prisma.classroom.findMany({
     orderBy: [{ grade: "asc" }, { section: "asc" }],
+    include: grades
+      ? {
+          students: {
+            where: {},
+            orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          },
+        }
+      : undefined,
   });
   return rows.map((r) => ({
     id: r.id,
@@ -37,6 +60,22 @@ export async function loadClassrooms(): Promise<ClassroomRow[]> {
     capacity: r.capacity,
     studentCount: r.studentCount,
     status: r.status,
+    students:
+      grades && grades.includes(r.grade) && "students" in r
+        ? (r as unknown as { students: Array<{
+            id: string; code: string; firstName: string; lastName: string;
+            gender: string; attendance: number; gpa: number; classroomId: string;
+          }> }).students.map((s) => ({
+            id: s.id,
+            code: s.code,
+            firstName: s.firstName,
+            lastName: s.lastName,
+            gender: s.gender === "M" ? "M" : "F",
+            attendance: s.attendance,
+            gpa: s.gpa,
+            classroomId: s.classroomId,
+          }))
+        : undefined,
   }));
 }
 

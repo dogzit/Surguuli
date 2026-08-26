@@ -50,7 +50,7 @@ export interface AdminClassroom {
 }
 
 const GRADES = Array.from({ length: 12 }, (_, i) => i + 1);
-const SECTIONS = ["А", "Б", "В", "Г"];
+const SECTIONS = ["А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж"];
 
 interface FormState {
   grade: number;
@@ -58,11 +58,12 @@ interface FormState {
   label: string;
   headTeacher: string;
   room: string;
-  capacity: number;
-  studentCount: number;
+  // Numeric fields kept as strings so mid-edit values ("") don't collapse to 0.
+  capacity: string;
+  studentCount: string;
 }
 
-const EMPTY_FORM: FormState = { grade: 1, section: "А", label: "", headTeacher: "", room: "", capacity: 32, studentCount: 0 };
+const EMPTY_FORM: FormState = { grade: 1, section: "А", label: "", headTeacher: "", room: "", capacity: "32", studentCount: "0" };
 
 export default function ClassroomPanel({ classrooms }: { classrooms: AdminClassroom[] }) {
   const [q, setQ] = useState("");
@@ -107,12 +108,20 @@ export default function ClassroomPanel({ classrooms }: { classrooms: AdminClassr
   const openCreate = () => { setForm(EMPTY_FORM); setCreateOpen(true); };
   const openEdit = (c: AdminClassroom) => {
     setEditing(c);
-    setForm({ grade: c.grade, section: c.section, label: c.label, headTeacher: c.headTeacher, room: c.room ?? "", capacity: c.capacity, studentCount: c.studentCount });
+    setForm({ grade: c.grade, section: c.section, label: c.label, headTeacher: c.headTeacher, room: c.room ?? "", capacity: String(c.capacity), studentCount: String(c.studentCount) });
   };
 
   const handleCreate = () => {
     start(async () => {
-      const res = await createClassroom(form);
+      const res = await createClassroom({
+        grade: form.grade,
+        section: form.section,
+        label: form.label,
+        headTeacher: form.headTeacher,
+        room: form.room,
+        capacity: Number(form.capacity) || 32,
+        studentCount: Number(form.studentCount) || 0,
+      });
       if (res.ok) { toast.success(res.message ?? "Үүсгэлээ"); setCreateOpen(false); }
       else toast.error(res.error);
     });
@@ -121,7 +130,7 @@ export default function ClassroomPanel({ classrooms }: { classrooms: AdminClassr
   const handleUpdate = () => {
     if (!editing) return;
     start(async () => {
-      const res = await updateClassroom(editing.id, { label: form.label, headTeacher: form.headTeacher, room: form.room || null, capacity: form.capacity, studentCount: form.studentCount });
+      const res = await updateClassroom(editing.id, { label: form.label, headTeacher: form.headTeacher, room: form.room || null, capacity: Number(form.capacity) || 0, studentCount: Number(form.studentCount) || 0 });
       if (res.ok) { toast.success(res.message ?? "Хадгаллаа"); setEditing(null); }
       else toast.error(res.error);
     });
@@ -369,11 +378,29 @@ function ClassroomForm({ form, updateForm }: { form: FormState; updateForm: (k: 
         </div>
       </div>
       <div className="space-y-1.5"><Label>Ангийн нэр</Label><Input value={form.label} onChange={(e) => updateForm("label", e.target.value)} placeholder="1А анги" /></div>
-      <div className="space-y-1.5"><Label>Ахлах багш</Label><Input value={form.headTeacher} onChange={(e) => updateForm("headTeacher", e.target.value)} placeholder="Б. Мөнхцэцэг" /></div>
+      <div className="space-y-1.5"><Label>Ангийн багш</Label><Input value={form.headTeacher} onChange={(e) => updateForm("headTeacher", e.target.value)} placeholder="Б. Мөнхцэцэг" /></div>
       <div className="space-y-1.5"><Label>Өрөө</Label><Input value={form.room} onChange={(e) => updateForm("room", e.target.value)} placeholder="204 тоот" /></div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5"><Label>Багтаамж</Label><Input type="number" value={form.capacity} onChange={(e) => updateForm("capacity", Number(e.target.value))} min={1} /></div>
-        <div className="space-y-1.5"><Label>Сурагчийн тоо</Label><Input type="number" value={form.studentCount} onChange={(e) => updateForm("studentCount", Number(e.target.value))} min={0} /></div>
+        <div className="space-y-1.5">
+          <Label>Багтаамж</Label>
+          <Input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={form.capacity}
+            onChange={(e) => updateForm("capacity", e.target.value.replace(/[^\d]/g, "").slice(0, 3))}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Сурагчийн тоо</Label>
+          <Input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={form.studentCount}
+            onChange={(e) => updateForm("studentCount", e.target.value.replace(/[^\d]/g, "").slice(0, 3))}
+          />
+        </div>
       </div>
     </div>
   );

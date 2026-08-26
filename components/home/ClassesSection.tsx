@@ -6,7 +6,7 @@ import { GradeSidebar } from "./classes/GradeSidebar";
 import { Grade2Panel } from "./classes/Grade2Panel";
 import { LockedGradeView } from "./classes/LockedGradeView";
 import { hydrateGrade2, type ClassroomInput } from "./classes/data";
-import type { Classroom, GradeSummary } from "./classes/types";
+import type { GradeSummary } from "./classes/types";
 
 interface ClassesSectionProps {
   classroomRows: ClassroomInput[];
@@ -18,8 +18,10 @@ export function ClassesSection({
   gradeSummaries,
 }: ClassesSectionProps) {
   const [activeGrade, setActiveGrade] = useState<number>(2);
-  const [grade2Classrooms, setGrade2Classrooms] = useState<Classroom[]>(() =>
-    hydrateGrade2(classroomRows),
+
+  const grade2Classrooms = useMemo(
+    () => hydrateGrade2(classroomRows),
+    [classroomRows],
   );
 
   const lockedSummary = useMemo(
@@ -27,39 +29,24 @@ export function ClassesSection({
     [activeGrade, gradeSummaries],
   );
 
-  function handleCreateSection(section: Classroom) {
-    setGrade2Classrooms((prev) => [...prev, section]);
-  }
-
   return (
     <SectionShell
       id="classes"
-      tone="muted"
+      tone="light"
       eyebrow="Анги бүлэг"
-      title="Ангиудын дэлгэрэнгүй бүртгэл"
-      description="1—12-р ангиудын албан ёсны мэдээлэл, идэвхтэй хуваарилалт, сурагчийн ирц, дүнгийн үндсэн үзүүлэлт нэг дор."
+      title="Сурагчдын дэлгэрэнгүй бүртгэл"
+      description="Ангиудын албан ёсны мэдээлэл — одоогийн бүлэг, ахлах багш нэг дор."
     >
-      <nav className="mb-6 flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span>Нүүр</span>
-        <span className="text-border">/</span>
-        <span>Анги бүлэг</span>
-        <span className="text-border">/</span>
-        <span className="font-medium text-foreground">{activeGrade}-р анги</span>
-      </nav>
-
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
         <GradeSidebar activeGrade={activeGrade} onSelect={setActiveGrade} />
         <div className="min-w-0 flex-1">
           {activeGrade === 2 ? (
-            <Grade2Panel
-              classrooms={grade2Classrooms}
-              onCreateSection={handleCreateSection}
-            />
+            <Grade2Panel classrooms={grade2Classrooms} />
           ) : lockedSummary ? (
             <LockedGradeView summary={lockedSummary} />
           ) : (
-            <div className="rounded-lg border border-dashed border-border bg-background p-8 text-center text-sm text-muted-foreground">
-              {activeGrade}-р ангийн мэдээлэл өгөгдлийн санд бүртгэгдээгүй байна.
+            <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center text-sm text-muted-foreground">
+              {activeGrade}-р ангийн мэдээлэл бүртгэгдээгүй байна.
             </div>
           )}
         </div>

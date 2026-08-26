@@ -18,6 +18,7 @@ import {
   Calendar,
   MessageSquare,
   Image,
+  KeyRound,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -27,12 +28,14 @@ const NAV_ITEMS = [
   { href: "/dashboard/admin/users", label: "Хэрэглэгчид", icon: Users },
   { href: "/dashboard/admin/signatures", label: "Гарын үсэг", icon: FileSignature },
   { href: "/dashboard/admin/classrooms", label: "Ангиуд", icon: GraduationCap },
+  { href: "/dashboard/admin/students", label: "Сурагчид", icon: Users },
   { href: "/dashboard/admin/content", label: "Контент", icon: Newspaper },
   { href: "/dashboard/admin/gallery", label: "Галерей", icon: Image },
   { href: "/dashboard/admin/achievements", label: "Амжилт", icon: Award },
   { href: "/dashboard/admin/faq", label: "Асуулт", icon: HelpCircle },
   { href: "/dashboard/admin/events", label: "Үйл явдал", icon: Calendar },
   { href: "/dashboard/admin/testimonials", label: "Сэтгэгдэл", icon: MessageSquare },
+  { href: "/dashboard/admin/codes", label: "Кодууд", icon: KeyRound },
   { href: "/dashboard/admin/bulk", label: "Үйлдлүүд", icon: Wrench },
 ];
 

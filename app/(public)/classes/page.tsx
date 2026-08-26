@@ -5,7 +5,7 @@ import { ClassesSkeleton } from "@/components/home/classes/ClassesSkeleton";
 import { loadClassrooms, summarizeByGrade } from "@/lib/classrooms";
 
 export const metadata: Metadata = {
-  title: "Анги бүлэг · Монгол 3-р сургууль",
+  title: "Анги бүлэг · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
   description:
     "1—12-р ангиудын албан ёсны мэдээлэл, идэвхтэй хуваарилалт, сурагчийн ирц, дүнгийн үндсэн үзүүлэлт.",
 };
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 async function ClassesData() {
-  const classroomRows = await loadClassrooms();
+  const classroomRows = await loadClassrooms({ includeStudentsForGrades: [2] });
   const gradeSummaries = summarizeByGrade(classroomRows);
   return (
     <ClassesSection

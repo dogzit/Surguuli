@@ -18,10 +18,16 @@ export function NavigationLoader() {
     const handleClick = (e: MouseEvent) => {
       // Skip loading overlay on admin/dashboard pages — they load via server queries
       if (pathname.startsWith("/dashboard")) return;
+      // Don't intercept "open in new tab" style clicks
+      if (e.defaultPrevented) return;
+      if (e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       const target = (e.target as HTMLElement).closest("a[href]");
       if (!target) return;
+      if (target.getAttribute("target") === "_blank") return;
+      if (target.hasAttribute("download")) return;
       const href = target.getAttribute("href");
-      if (!href || href.startsWith("#") || href.startsWith("http")) return;
+      if (!href || href.startsWith("#") || href.startsWith("http") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
       if (href === displayPath) return;
       setLoading(true);
     };

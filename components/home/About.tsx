@@ -37,8 +37,8 @@ const TIMELINE = [
   {
     icon: GraduationCap,
     year: "1921",
-    title: "Ардын хувьсгалийн дараа",
-    body: "1921 оны Ардын хувьсгалийн дараа Засгийн газрын шийдвэрээр олон нийтийн сургуулиудыг байгуулж, Монгол 3-р сургуулийн үндэс тавигдав.",
+    title: "Ардын хувьсгалын дараа",
+    body: "1921 оны Ардын хувьсгалын дараа Засгийн газрын шийдвэрээр олон нийтийн сургуулиудыг байгуулж, Нийслэлийн ерөнхий боловсролын 3-р сургуулийн үндэс тавигдав.",
     color: "from-blue-500/20 to-cyan-500/20",
     iconBg: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
   },
@@ -67,12 +67,9 @@ const LOCATIONS = [
   { num: "04", label: "Сүхбаатар дүүрэг, 10-р хороо", era: "Одоогийн байршил" },
 ];
 
-const STATS = [
-  { icon: Clock, value: "100+", label: "Жилийн түүх" },
-  { icon: Users, value: "1,120+", label: "Сурагч" },
-  { icon: GraduationCap, value: "84", label: "Багш, ажилтан" },
-  { icon: Award, value: "27", label: "Олимпиадын медаль" },
-];
+function yearsSince(startYear: number) {
+  return new Date().getFullYear() - startYear;
+}
 
 const MISSION = [
   {
@@ -97,7 +94,26 @@ const MISSION = [
   },
 ];
 
-export function About() {
+interface AboutProps {
+  students?: string;
+  staff?: string;
+  olympiadMedals?: string;
+  foundedYear?: number;
+}
+
+export function About({
+  students = "1,120+",
+  staff = "84",
+  olympiadMedals = "27",
+  foundedYear = 1921,
+}: AboutProps = {}) {
+  const STATS = [
+    { icon: Clock, value: `${yearsSince(foundedYear)}+`, label: "Жилийн түүх" },
+    { icon: Users, value: students, label: "Сурагч" },
+    { icon: GraduationCap, value: staff, label: "Багш, ажилтан" },
+    { icon: Award, value: olympiadMedals, label: "Олимпиадын медаль" },
+  ];
+
   return (
     <>
       {/* Hero Banner */}
@@ -173,7 +189,7 @@ export function About() {
         tone="light"
         eyebrow="Түүхэн хугацаа"
         title="100+ жилийн замнал"
-        description="1911 оны шинэчлэлээс эхлэн өнөөдрийг хүртэлх Монгол 3-р сургуулийн түүхэн замнал."
+        description="1911 оны шинэчлэлээс эхлэн өнөөдрийг хүртэлх Нийслэлийн ерөнхий боловсролын 3-р сургуулийн түүхэн замнал."
       >
         <div className="relative">
           {/* Vertical line */}
@@ -239,7 +255,7 @@ export function About() {
               Сургуулийн аялал
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
-              Монгол 3-р сургууль нь түүхэндээ дөрвөн удаа байршлаа сольж, эцэст нь одоогийн газардаа хүрсэн.
+              Нийслэлийн ерөнхий боловсролын 3-р сургууль нь түүхэндээ дөрвөн удаа байршлаа сольж, эцэст нь одоогийн газардаа хүрсэн.
             </p>
           </div>
 
@@ -292,7 +308,7 @@ export function About() {
       <SectionShell
         id="mission"
         tone="light"
-        eyebrow="Мисс"
+        eyebrow="Эрхэм зорилго"
         title="Бидний зорилго"
         description="Хүүхэд бүр эрдэм номын гэрлээр гэрэлтэж, өөрийгөө болон нийгмээ хүндэтгэж сурах — энэ бол бидний тэргүүлэх зорилго."
       >
