@@ -15,15 +15,17 @@ export default function AdminGate() {
   const router = useRouter();
   const submittedRef = useRef(false);
   const [checking, setChecking] = useState(true);
-  const [isApprover, setIsApprover] = useState(false);
+  const [hasAdminRole, setHasAdminRole] = useState(false);
 
   useEffect(() => {
-    // Check if user is an approver with a session
+    // Only block the PIN gate if the user's role grants admin access
+    // (ADMIN/APPROVER). Teachers with a position must still be able to
+    // enter the admin PIN.
     fetch("/api/me")
       .then((r) => r.json())
       .then((data) => {
-        if (data.position) {
-          setIsApprover(true);
+        if (data.role === "APPROVER" || data.role === "ADMIN") {
+          setHasAdminRole(true);
         }
         setChecking(false);
       })
@@ -31,11 +33,11 @@ export default function AdminGate() {
   }, []);
 
   useEffect(() => {
-    if (!checking && !isApprover) {
+    if (!checking && !hasAdminRole) {
       const t = setTimeout(() => inputRef.current?.focus(), 60);
       return () => clearTimeout(t);
     }
-  }, [checking, isApprover]);
+  }, [checking, hasAdminRole]);
 
   const submit = (value: string) => {
     if (pending) return;
@@ -65,8 +67,8 @@ export default function AdminGate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
-  // Approver with session - show continue button
-  if (isApprover) {
+  // ADMIN/APPROVER session exists - show continue button
+  if (hasAdminRole) {
     return (
       <main className="flex items-center justify-center px-4 pb-6 pt-10 sm:pt-14">
         <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm text-center">

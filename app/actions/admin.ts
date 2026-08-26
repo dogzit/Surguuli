@@ -16,7 +16,6 @@ function revalidateAll() {
   revalidatePath("/dashboard/admin");
   revalidatePath("/dashboard/admin/students");
   revalidatePath("/dashboard/admin/classrooms");
-  revalidatePath("/dashboard/approver");
   revalidatePath("/dashboard/teacher");
   revalidatePath("/classes");
   revalidatePath("/");

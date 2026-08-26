@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import ApproveButton from "@/app/dashboard/approver/ApproveButton";
+import ApproveButton from "./ApproveButton";
 import { cn, toLatin } from "@/lib/utils";
 
 export interface TeacherRow {

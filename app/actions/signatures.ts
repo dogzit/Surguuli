@@ -20,7 +20,7 @@ async function requireApprover() {
 }
 
 function revalidateAll() {
-  revalidatePath("/dashboard/approver");
+  revalidatePath("/dashboard/admin");
   revalidatePath("/dashboard/teacher");
 }
 

@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, roleHomePath } from "@/lib/session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, GraduationCap, History, ArrowLeft, Home } from "lucide-react";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export default async function TeacherDashboard() {
   const me = await getCurrentUser();
   if (!me) redirect("/login");
-  if (me.role !== "TEACHER") redirect("/dashboard/approver");
+  if (me.role !== "TEACHER") redirect(roleHomePath(me.role, me.position));
 
   const signatures = await prisma.signature.findMany({
     where: { teacherId: me.id },

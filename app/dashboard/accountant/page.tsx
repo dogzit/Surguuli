@@ -105,7 +105,7 @@ export default async function AccountantDashboard() {
             </p>
           </div>
         </div>
-        <Link href="/dashboard/approver">
+        <Link href="/dashboard/admin">
           <Button variant="outline" size="sm">
             <FileSignature className="mr-2 h-4 w-4" />
             Гарын үсэг зурах
