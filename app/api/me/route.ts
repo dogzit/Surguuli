@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ name: null, position: null }, { status: 401 });
+    return NextResponse.json({ name: null, position: null, role: null }, { status: 401 });
   }
-  return NextResponse.json({ name: user.name, position: user.position });
+  return NextResponse.json({ name: user.name, position: user.position, role: user.role });
 }
