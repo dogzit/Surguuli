@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     "Нийслэлийн ерөнхий боловсролын 3-р сургуулийн танилцуулга, түүх, виртуал аялал, анги бүлэг, сургалтын чанар, хүүхэд хамгааллын албан ёсны цахим хуудас.",
 };
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [info, newsItems, gallery, achievements, events, clubs] = await Promise.all([

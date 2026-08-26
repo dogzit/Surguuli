@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "Нийслэлийн ерөнхий боловсролын 3 дугаар сургуулийн танилцуулга, түүх, зорилго, уламжлал.",
 };
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {
   const info = await loadSchoolInfo();

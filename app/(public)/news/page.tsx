@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "Албан ёсны шийдвэр, тайлан, эцэг эхэд зориулсан зарлалууд.",
 };
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function NewsPage() {
   const items = await loadNewsItems();

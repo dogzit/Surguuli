@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "Хүүхдийн эрх, аюулгүй байдлыг хамгаалах бодлого, эрсдэлийн үнэлгээ, албан ёсны хариуцлагатай ажилтан.",
 };
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export default async function ProtectionPage() {
   const info = await loadSchoolInfo();

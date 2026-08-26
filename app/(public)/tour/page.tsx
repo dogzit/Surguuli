@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "Сургуулийг өөрөө нэг зочилж үзээрэй — зогсоол бүр дээрх орчин үеийн боловсролын байгууламжтай танилцаарай.",
 };
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export default async function TourPage() {
   const rooms = await loadTourRooms();
