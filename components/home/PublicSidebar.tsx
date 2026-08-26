@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Menu, X, Home, Plane, Users, Calendar, Clock, Star, Wallet,
   BookOpen, Shield, Newspaper, Phone, LogIn, LogOut, User, ChevronRight,
-  PanelLeftClose, PanelLeftOpen, AlertTriangle,
+  PanelLeftClose, PanelLeftOpen, AlertTriangle, FileSignature, CheckCircle2,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -32,11 +32,18 @@ const NAV_LINKS = [
   { href: "/contact", label: "Холбоо", icon: Phone },
 ] as const;
 
+interface SignatureData {
+  signed: number;
+  total: number;
+  complete: boolean;
+}
+
 export default function PublicSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [authState, setAuthState] = useState<{ loggedIn: boolean; role?: string; name?: string }>({ loggedIn: false });
   const [logoutModal, setLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [signatureData, setSignatureData] = useState<SignatureData | null>(null);
   const { collapsed, toggle } = useSidebar();
   const pathname = usePathname();
 
@@ -50,6 +57,20 @@ export default function PublicSidebar() {
       .then(setAuthState)
       .catch(() => setAuthState({ loggedIn: false }));
   }, []);
+
+  // Fetch signature progress for teachers
+  useEffect(() => {
+    if (authState.loggedIn && authState.role !== "ADMIN" && authState.role !== "APPROVER") {
+      fetch("/api/teacher/signatures/progress")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d && d.total > 0) {
+            setSignatureData(d);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [authState]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -126,6 +147,38 @@ export default function PublicSidebar() {
         })}
       </nav>
 
+      {/* Signature Progress for Teachers */}
+      {signatureData && (
+        <div className="mx-3 mb-3 rounded-xl border border-border/50 bg-muted/30 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            {signatureData.complete ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <FileSignature className="h-4 w-4 text-primary" />
+            )}
+            <span className="text-xs font-medium">
+              {signatureData.complete ? "Амралт баталгаажсан!" : "Гарын үсэг"}
+            </span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.round((signatureData.signed / signatureData.total) * 100)}%` }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className={cn(
+                "h-full rounded-full",
+                signatureData.complete
+                  ? "bg-emerald-500"
+                  : "bg-gradient-to-r from-primary/80 to-primary",
+              )}
+            />
+          </div>
+          <div className="mt-1.5 text-[10px] text-muted-foreground">
+            {signatureData.signed}/{signatureData.total} гарын үсэг
+          </div>
+        </div>
+      )}
+
       {/* Bottom section - pinned to bottom */}
       <div className="mt-auto border-t border-border/50">
         {/* Auth */}
@@ -171,11 +224,11 @@ export default function PublicSidebar() {
 
   return (
     <>
-      {/* Mobile hamburger button */}
+      {/* Mobile hamburger button - higher z-index, positioned above signature widget */}
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed bottom-4 left-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg lg:hidden"
+        className="fixed bottom-6 left-4 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -189,14 +242,14 @@ export default function PublicSidebar() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm lg:hidden"
             />
             <motion.aside
               initial={{ x: -280 }}
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col border-r border-border bg-background lg:hidden"
+              className="fixed inset-y-0 left-0 z-[80] flex h-full w-72 flex-col border-r border-border bg-background lg:hidden"
             >
               <button
                 type="button"

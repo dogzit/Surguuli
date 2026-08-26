@@ -5,7 +5,6 @@ import { Gallery } from "@/components/home/Gallery";
 import { Achievements } from "@/components/home/Achievements";
 import { EventsSection } from "@/components/home/EventsSection";
 import { ClubsSection } from "@/components/home/ClubsSection";
-import { TeacherSignatureWidget } from "@/components/home/TeacherSignatureWidget";
 import { loadSchoolInfo, loadNewsItems, loadGallery, loadAchievements, loadEvents, loadClubs } from "@/lib/site-data";
 
 export const metadata: Metadata = {
@@ -40,7 +39,6 @@ export default async function HomePage() {
       <Achievements items={achievements} />
       <ClubsSection clubs={clubs} />
       <EventsSection events={events} />
-      <TeacherSignatureWidget />
     </>
   );
 }
