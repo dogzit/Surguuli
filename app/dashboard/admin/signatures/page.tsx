@@ -1,11 +1,12 @@
 import { FileSignature } from "lucide-react";
-import { isAdmin } from "@/lib/admin";
+import { canAccessAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import AdminGate from "../AdminGate";
 import SignaturesPanel from "../SignaturesPanel";
 
 export default async function SignaturesPage() {
-  if (!(await isAdmin())) return <AdminGate />;
+  const access = await canAccessAdmin();
+  if (access.role !== "ADMIN") return <AdminGate role={access.role as "APPROVER" | null} />;
 
   const signatures = await prisma.signature.findMany({
     orderBy: { createdAt: "desc" },

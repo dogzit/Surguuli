@@ -4,6 +4,7 @@ import { SectionShell } from "@/components/home/SectionShell";
 export const metadata: Metadata = {
   title: "Хичээлийн хуваарь · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
   description: "Анги бүрийн хичээлийн хуваарь.",
+  robots: { index: false, follow: true },
 };
 
 export default function SchedulePage() {

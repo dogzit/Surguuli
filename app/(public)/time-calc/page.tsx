@@ -4,6 +4,7 @@ import { SectionShell } from "@/components/home/SectionShell";
 export const metadata: Metadata = {
   title: "Цагийн тооцоо · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
   description: "Сурагчдын цагийн тооцоо, ирцийн мэдээлэл.",
+  robots: { index: false, follow: true },
 };
 
 export default function TimeCalcPage() {

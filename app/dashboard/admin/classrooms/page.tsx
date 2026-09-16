@@ -1,11 +1,12 @@
 import { GraduationCap } from "lucide-react";
-import { isAdmin } from "@/lib/admin";
+import { canAccessAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import AdminGate from "../AdminGate";
 import ClassroomPanel from "../ClassroomPanel";
 
 export default async function ClassroomsPage() {
-  if (!(await isAdmin())) return <AdminGate />;
+  const access = await canAccessAdmin();
+  if (access.role !== "ADMIN") return <AdminGate role={access.role as "APPROVER" | null} />;
 
   const classrooms = await prisma.classroom.findMany({
     orderBy: [{ grade: "asc" }, { section: "asc" }],

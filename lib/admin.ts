@@ -4,7 +4,11 @@ import crypto from "crypto";
 
 export const ADMIN_COOKIE = "admin_uid";
 const ADMIN_MARKER = "admin";
-const ADMIN_MAX_AGE = 60 * 60 * 8;
+// Match the session-cookie duration (30 days) so an admin who signed in via
+// PIN doesn't silently lose access mid-session and get redirected back to
+// `/login` — that used to trigger the AdminGate refresh-loop when combined
+// with an approver session.
+const ADMIN_MAX_AGE = 60 * 60 * 24 * 30;
 
 function adminSecret(): string {
   const s = process.env.ADMIN_SECRET || process.env.SESSION_SECRET;
@@ -14,7 +18,16 @@ function adminSecret(): string {
 }
 
 export function verifyAdminPin(pin: string): boolean {
-  return pin === process.env.ADMIN_PIN;
+  // Trim both sides — .env values often have accidental trailing spaces
+  // or quotes and users likewise sometimes paste with whitespace.
+  const expected = process.env.ADMIN_PIN?.trim();
+  const provided = pin.trim();
+  // Fail closed if the admin PIN is not configured.
+  if (!expected) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 export async function setAdminSession() {
@@ -68,4 +81,18 @@ export async function canAccessAdmin(): Promise<{ allowed: boolean; role: string
 
 export async function requireAdmin() {
   if (!(await isAdmin())) redirect("/dashboard/admin");
+}
+
+/**
+ * Server-action variant of requireAdmin: does NOT redirect (redirects from
+ * server actions confuse React 19 form state). Returns a Result-shaped
+ * error the caller can pass straight through.
+ */
+export async function ensureAdmin(): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  if (!(await isAdmin())) {
+    return { ok: false, error: "Админы эрх шаардлагатай." };
+  }
+  return { ok: true };
 }

@@ -228,3 +228,24 @@ model ContactMessage {
   @@index([status, createdAt])
 }
 
+// Immutable append-only audit trail for destructive admin actions
+// (user delete, PIN regeneration, signature clears, classroom deletes, etc.).
+// actorId is null when the action was performed with just the admin PIN
+// cookie (no user session). Metadata is a JSON-encoded string of arbitrary
+// context — kept as `String` so we don't need a JSON column on every DB.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorName  String
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+}
+

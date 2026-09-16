@@ -4,6 +4,7 @@ import { SectionShell } from "@/components/home/SectionShell";
 export const metadata: Metadata = {
   title: "Багшийн үнэлгээ · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
   description: "Багш нарын үнэлгээ, сэтгэгдэл.",
+  robots: { index: false, follow: true },
 };
 
 export default function TeacherEvalPage() {

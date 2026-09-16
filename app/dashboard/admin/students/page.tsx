@@ -1,44 +1,17 @@
 import { Users } from "lucide-react";
-import { isAdmin } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
+import { canAccessAdmin } from "@/lib/admin";
 import AdminGate from "../AdminGate";
 import StudentsPanel from "../StudentsPanel";
+import { getClassroomMeta } from "@/app/actions/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentsPage() {
-  if (!(await isAdmin())) return <AdminGate />;
+  const access = await canAccessAdmin();
+  if (access.role !== "ADMIN") return <AdminGate role={access.role as "APPROVER" | null} />;
 
-  const classrooms = await prisma.classroom.findMany({
-    orderBy: [{ grade: "asc" }, { section: "asc" }],
-    include: {
-      students: {
-        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      },
-    },
-  });
-
-  const rows = classrooms.map((c) => ({
-    id: c.id,
-    grade: c.grade,
-    section: c.section,
-    label: c.label,
-    headTeacher: c.headTeacher,
-    room: c.room,
-    capacity: c.capacity,
-    status: c.status,
-    students: c.students.map((s) => ({
-      id: s.id,
-      code: s.code,
-      firstName: s.firstName,
-      lastName: s.lastName,
-      gender: s.gender,
-      attendance: s.attendance,
-      gpa: s.gpa,
-      chosen: s.chosen,
-      previousClassroomId: s.previousClassroomId,
-    })),
-  }));
+  const meta = await getClassroomMeta();
+  if (!meta.ok) return <AdminGate />;
 
   return (
     <>
@@ -53,7 +26,7 @@ export default async function StudentsPage() {
           </p>
         </div>
       </div>
-      <StudentsPanel classrooms={rows} />
+      <StudentsPanel classroomMeta={meta.data!} />
     </>
   );
 }

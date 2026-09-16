@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as XLSX from "xlsx";
 import {
   Plus,
@@ -36,24 +36,19 @@ import {
   createSectionFromPool,
   createStudent,
   deleteStudent,
+  getStudentsByGrade,
   importStudents,
   revertSection,
   updateStudent,
 } from "@/app/actions/admin";
+import type { StudentClassroomRow, StudentRow } from "@/app/actions/admin";
 
-export interface AdminStudent {
-  id: string;
-  code: string;
-  firstName: string;
-  lastName: string;
-  gender: string;
-  attendance: number;
-  gpa: number;
-  chosen: boolean;
-  previousClassroomId: string | null;
-}
+export type { StudentRow as AdminStudent, StudentClassroomRow as AdminStudentClassroom };
 
-export interface AdminStudentClassroom {
+const SECTION_LETTERS = ["А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И"];
+
+/** Metadata-only classroom shape (no students) — comes from the server page. */
+interface ClassroomMeta {
   id: string;
   grade: number;
   section: string;
@@ -62,51 +57,97 @@ export interface AdminStudentClassroom {
   room: string | null;
   capacity: number;
   status: string;
-  students: AdminStudent[];
 }
 
-const SECTION_LETTERS = ["А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И"];
-
 export default function StudentsPanel({
-  classrooms,
+  classroomMeta,
 }: {
-  classrooms: AdminStudentClassroom[];
+  classroomMeta: ClassroomMeta[];
 }) {
   const grades = useMemo(() => {
-    return Array.from(new Set(classrooms.map((c) => c.grade))).sort((a, b) => a - b);
-  }, [classrooms]);
+    return Array.from(new Set(classroomMeta.map((c) => c.grade))).sort((a, b) => a - b);
+  }, [classroomMeta]);
 
   const [activeGrade, setActiveGrade] = useState<number>(grades.includes(2) ? 2 : grades[0] ?? 1);
   const [q, setQ] = useState("");
   const [pending, start] = useTransition();
 
-  const [addOpen, setAddOpen] = useState<AdminStudentClassroom | null>(null);
-  const [editOpen, setEditOpen] = useState<{ classroom: AdminStudentClassroom; student: AdminStudent } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<AdminStudent | null>(null);
-  const [importTarget, setImportTarget] = useState<AdminStudentClassroom | null>(null);
+  // Per-grade student data — fetched on demand
+  const [gradeStudents, setGradeStudents] = useState<Map<number, StudentClassroomRow[]>>(new Map());
+  const [loadingGrade, setLoadingGrade] = useState<number | null>(null);
+
+  const [addOpen, setAddOpen] = useState<StudentClassroomRow | null>(null);
+  const [editOpen, setEditOpen] = useState<{ classroom: StudentClassroomRow; student: StudentRow } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<StudentRow | null>(null);
+  const [importTarget, setImportTarget] = useState<StudentClassroomRow | null>(null);
   const [shuffleOpen, setShuffleOpen] = useState(false);
   const [lastShuffleReport, setLastShuffleReport] = useState<{
     classroomId: string;
     label: string;
     count: number;
   } | null>(null);
-  const [revertTarget, setRevertTarget] = useState<AdminStudentClassroom | null>(null);
+  const [revertTarget, setRevertTarget] = useState<StudentClassroomRow | null>(null);
 
-  const runRevert = (classroom: AdminStudentClassroom) => {
+  // Fetch students for a grade — only if not already loaded
+  const fetchGrade = useCallback(
+    (grade: number) => {
+      if (gradeStudents.has(grade)) return;
+      setLoadingGrade(grade);
+      start(async () => {
+        const res = await getStudentsByGrade(grade);
+        if (res.ok && res.data) {
+          setGradeStudents((prev) => new Map(prev).set(grade, res.data!));
+        } else {
+          toast.error(res.ok ? "Мэдээлэл авч чадсангүй." : res.error);
+        }
+        setLoadingGrade(null);
+      });
+    },
+    [gradeStudents, start],
+  );
+
+  // Fetch on grade change
+  useEffect(() => {
+    fetchGrade(activeGrade);
+  }, [activeGrade, fetchGrade]);
+
+  // Refresh a grade's data (after mutations)
+  const refreshGrade = useCallback(
+    (grade: number) => {
+      setGradeStudents((prev) => {
+        const next = new Map(prev);
+        next.delete(grade); // force re-fetch
+        return next;
+      });
+      // Trigger re-fetch on next render
+      setLoadingGrade(grade);
+      start(async () => {
+        const res = await getStudentsByGrade(grade);
+        if (res.ok && res.data) {
+          setGradeStudents((prev) => new Map(prev).set(grade, res.data!));
+        }
+        setLoadingGrade(null);
+      });
+    },
+    [start],
+  );
+
+  const runRevert = (classroom: StudentClassroomRow) => {
     start(async () => {
       const res = await revertSection(classroom.id);
       if (res.ok) {
         toast.success(res.message ?? "Буцаагдлаа");
         setLastShuffleReport(null);
         setRevertTarget(null);
+        refreshGrade(activeGrade);
       } else toast.error(res.error);
     });
   };
 
-  const inGrade = useMemo(
-    () => classrooms.filter((c) => c.grade === activeGrade),
-    [classrooms, activeGrade],
-  );
+  // Use server-loaded StudentClassroomRow[] directly (already includes students per grade)
+  const inGrade: StudentClassroomRow[] = useMemo(() => {
+    return gradeStudents.get(activeGrade) ?? [];
+  }, [activeGrade, gradeStudents]);
 
   const filteredClassrooms = useMemo(() => {
     const needle = q.trim();
@@ -128,6 +169,8 @@ export default function StudentsPanel({
 
   const usedSectionLetters = new Set(inGrade.map((c) => c.section));
   const nextSectionLetter = SECTION_LETTERS.find((l) => !usedSectionLetters.has(l)) ?? "?";
+
+  const isLoading = loadingGrade === activeGrade;
 
   return (
     <div className="space-y-6">
@@ -204,12 +247,22 @@ export default function StudentsPanel({
         </div>
       )}
 
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+          <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          {activeGrade}-р ангийн сурагчдыг ачаалж байна...
+        </div>
+      )}
+
       {/* Classroom sections */}
-      {filteredClassrooms.length === 0 ? (
+      {!isLoading && filteredClassrooms.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-10 text-center text-sm text-muted-foreground">
           {q ? "Хайлтад тохирох сурагч байхгүй." : `${activeGrade}-р ангид сурагч бүртгэгдээгүй байна.`}
         </div>
-      ) : (
+      )}
+
+      {!isLoading && filteredClassrooms.length > 0 && (
         <div className="space-y-4">
           {filteredClassrooms.map((c) => {
             const returnable = c.students.filter((s) => s.previousClassroomId).length;
@@ -347,6 +400,7 @@ export default function StudentsPanel({
             if (res.ok) {
               toast.success(res.message ?? "Хадгалагдлаа");
               setAddOpen(null);
+              refreshGrade(activeGrade);
             } else toast.error(res.error);
           });
         }}
@@ -367,6 +421,7 @@ export default function StudentsPanel({
             if (res.ok) {
               toast.success(res.message ?? "Хадгалагдлаа");
               setEditOpen(null);
+              refreshGrade(activeGrade);
             } else toast.error(res.error);
           });
         }}
@@ -398,6 +453,7 @@ export default function StudentsPanel({
                   if (res.ok) {
                     toast.success(res.message ?? "Устгалаа");
                     setDeleteTarget(null);
+                    refreshGrade(activeGrade);
                   } else toast.error(res.error);
                 });
               }}
@@ -420,6 +476,7 @@ export default function StudentsPanel({
             if (res.ok) {
               toast.success(res.message ?? "Импортлолоо");
               setImportTarget(null);
+              refreshGrade(activeGrade);
             } else toast.error(res.error);
           });
         }}
@@ -471,6 +528,7 @@ export default function StudentsPanel({
                 label: input.label,
                 count: res.data.movedCount,
               });
+              refreshGrade(activeGrade);
             } else if (!res.ok) toast.error(res.error);
           });
         }}
@@ -511,7 +569,7 @@ function StudentDialog({
   mode: "create" | "edit";
   pending: boolean;
   classroomLabel: string;
-  initial?: AdminStudent;
+  initial?: StudentRow;
   onSubmit: (data: {
     firstName: string;
     lastName: string;
@@ -824,7 +882,7 @@ function ImportDialog({
   pending,
   onImport,
 }: {
-  target: AdminStudentClassroom | null;
+  target: StudentClassroomRow | null;
   onClose: () => void;
   pending: boolean;
   onImport: (rows: ParsedImportRow[], replace: boolean) => void;

@@ -1,11 +1,12 @@
 import { Wrench } from "lucide-react";
-import { isAdmin } from "@/lib/admin";
+import { canAccessAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import AdminGate from "../AdminGate";
 import BulkPanel from "../BulkPanel";
 
 export default async function BulkPage() {
-  if (!(await isAdmin())) return <AdminGate />;
+  const access = await canAccessAdmin();
+  if (access.role !== "ADMIN") return <AdminGate role={access.role as "APPROVER" | null} />;
 
   const [userCount, signatureCount] = await Promise.all([
     prisma.user.count(),

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -46,6 +46,7 @@ export default function PublicSidebar() {
   const [signatureData, setSignatureData] = useState<SignatureData | null>(null);
   const { collapsed, toggle } = useSidebar();
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     setMobileOpen(false);
@@ -89,10 +90,16 @@ export default function PublicSidebar() {
     setLoggingOut(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      window.location.href = "/";
-    } catch {
-      setLoggingOut(false);
+      // Client-side navigation + refresh keeps the app shell warm and
+      // re-fetches the auth-dependent server components without a full
+      // page reload (Next dev-server is slow after location.href = "/").
+      router.replace("/");
+      router.refresh();
       setLogoutModal(false);
+    } catch {
+      setLogoutModal(false);
+    } finally {
+      setLoggingOut(false);
     }
   };
 

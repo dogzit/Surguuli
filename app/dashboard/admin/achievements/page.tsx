@@ -1,11 +1,12 @@
 import { Award } from "lucide-react";
-import { isAdmin } from "@/lib/admin";
+import { canAccessAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import AdminGate from "../AdminGate";
 import { SimpleListPanel } from "../ContentPanel";
 
 export default async function AchievementsPage() {
-  if (!(await isAdmin())) return <AdminGate />;
+  const access = await canAccessAdmin();
+  if (access.role !== "ADMIN") return <AdminGate role={access.role as "APPROVER" | null} />;
 
   const achievements = await prisma.achievement.findMany({
     orderBy: { year: "desc" },

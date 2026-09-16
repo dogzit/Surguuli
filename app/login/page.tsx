@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser, roleHomePath } from "@/lib/session";
 import { redirect } from "next/navigation";
 import LoginHeader from "./LoginHeader";
@@ -12,10 +11,9 @@ export default async function LoginPage() {
     redirect(roleHomePath(me.role, me.position));
   }
 
-  const users = await prisma.user.findMany({
-    orderBy: [{ role: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, position: true, role: true },
-  });
+  // NOTE: Intentionally NO bulk user query here. The staff roster is no
+  // longer exposed to unauthenticated visitors — the client searches for a
+  // single user on demand via the rate-limited `searchUsers` server action.
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -27,10 +25,7 @@ export default async function LoginPage() {
           <LoginHeader />
 
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm ring-1 ring-border">
-            <UserPicker
-              teachers={users.filter((u) => u.role === "TEACHER")}
-              approvers={users.filter((u) => u.role === "APPROVER")}
-            />
+            <UserPicker />
           </div>
         </div>
       </main>

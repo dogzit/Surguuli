@@ -25,8 +25,38 @@ export default async function HomePage() {
     loadClubs(),
   ]);
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  // Structured data helps search engines identify the site as an official
+  // educational organization. Kept intentionally minimal so wrong DB values
+  // (address, phone) don't produce misleading rich results.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "EducationalOrganization",
+    name: "Нийслэлийн ерөнхий боловсролын 3-р сургууль",
+    alternateName: "3-р сургууль",
+    url: siteUrl,
+    foundingDate: info.founded_year ?? "1921",
+    address: info.address
+      ? {
+          "@type": "PostalAddress",
+          streetAddress: info.address,
+          addressLocality: "Улаанбаатар",
+          addressCountry: "MN",
+        }
+      : undefined,
+    telephone: info.phone,
+    email: info.email,
+    sameAs: [] as string[],
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Hero
         students={info.hero_stats_students ?? "1,120+"}
         staff={info.hero_stats_staff ?? "84"}

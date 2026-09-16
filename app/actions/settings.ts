@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hashPin, verifyPin } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 
 export type FormResult =
@@ -65,6 +66,7 @@ export async function updatePin(formData: FormData): Promise<FormResult> {
 
   const hashed = await hashPin(next);
   await prisma.user.update({ where: { id: me.id }, data: { pin: hashed } });
+  await logAudit({ action: "user.self_change_pin", targetType: "user", targetId: me.id });
   revalidatePath("/dashboard/settings");
   return { ok: true, message: "PIN код шинэчлэгдлээ." };
 }

@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, PlayCircle, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import Logo from "@/components/Logo";
 
@@ -86,28 +84,6 @@ export function Hero({
             олон нийтийн сургуулиудын нэг бөгөөд Сүхбаатар дүүрэг, 10-р хорооны
             нутаг дэвсгэрт өнөөдрийг хүртэл үйл ажиллагаагаа явуулж байна.
           </motion.p>
-
-          <motion.div
-            custom={3}
-            initial="hidden"
-            animate="visible"
-            variants={fade}
-            className="mt-7 flex flex-wrap items-center gap-3"
-          >
-            <Button size="lg" asChild>
-              <Link href="/classes">
-                Анги, бүлгийн мэдээлэл
-                <ArrowRight className="ml-1.5 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/tour">
-                <PlayCircle className="mr-1.5 h-4 w-4" />
-                Виртуал аялалд оролцох
-              </Link>
-            </Button>
-
-          </motion.div>
 
           <motion.div
             custom={4}

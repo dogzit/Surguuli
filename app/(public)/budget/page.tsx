@@ -4,6 +4,7 @@ import { SectionShell } from "@/components/home/SectionShell";
 export const metadata: Metadata = {
   title: "Төсөв · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
   description: "Сургуулийн төсөв, зарцуулалт.",
+  robots: { index: false, follow: true },
 };
 
 export default function BudgetPage() {

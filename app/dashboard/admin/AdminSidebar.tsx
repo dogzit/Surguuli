@@ -18,29 +18,39 @@ import {
   Calendar,
   MessageSquare,
   Image,
-  KeyRound,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
-  { href: "/dashboard/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/admin/users", label: "Хэрэглэгчид", icon: Users },
+// approverVisible=true items are shown to APPROVER role too. Everything else
+// requires admin PIN and would otherwise send the approver to AdminGate.
+const NAV_ITEMS: Array<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+  approverVisible?: boolean;
+}> = [
+  { href: "/dashboard/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, approverVisible: true },
   { href: "/dashboard/admin/signatures", label: "Гарын үсэг", icon: FileSignature },
   { href: "/dashboard/admin/classrooms", label: "Ангиуд", icon: GraduationCap },
   { href: "/dashboard/admin/students", label: "Сурагчид", icon: Users },
   { href: "/dashboard/admin/content", label: "Контент", icon: Newspaper },
-  { href: "/dashboard/admin/gallery", label: "Галерей", icon: Image },
+  { href: "/dashboard/admin/gallery", label: "Галерей", icon: Image, approverVisible: true },
   { href: "/dashboard/admin/achievements", label: "Амжилт", icon: Award },
   { href: "/dashboard/admin/faq", label: "Асуулт", icon: HelpCircle },
   { href: "/dashboard/admin/events", label: "Үйл явдал", icon: Calendar },
   { href: "/dashboard/admin/testimonials", label: "Сэтгэгдэл", icon: MessageSquare },
-  { href: "/dashboard/admin/codes", label: "Кодууд", icon: KeyRound },
-  { href: "/dashboard/admin/bulk", label: "Үйлдлүүд", icon: Wrench },
+  // Хэрэглэгчид / Кодууд / Үйлдлүүд / Аудит — эмзэг үйлдэлтэй тул
+  // sidebar-с нуугдсан. Зөвхөн `/dashboard/admin/audit`-с shortcut card-ыг
+  // дараад орно (эсвэл URL-аа шууд бичээд).
 ];
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role: "ADMIN" | "APPROVER" | null }) {
   const pathname = usePathname();
+  const items = role === "ADMIN"
+    ? NAV_ITEMS
+    : NAV_ITEMS.filter((n) => n.approverVisible);
 
   return (
     <>
@@ -59,7 +69,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.exact
             ? pathname === item.href
@@ -106,7 +116,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ role }: { role: "ADMIN" | "APPROVER" | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -135,14 +145,14 @@ export default function AdminSidebar() {
             >
               <X className="h-4 w-4" />
             </button>
-            <NavLinks onNavigate={() => setMobileOpen(false)} />
+            <NavLinks onNavigate={() => setMobileOpen(false)} role={role} />
           </aside>
         </>
       )}
 
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 border-r border-border/50 bg-card/50 lg:flex lg:flex-col">
-        <NavLinks />
+        <NavLinks role={role} />
       </aside>
     </>
   );

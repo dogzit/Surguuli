@@ -139,6 +139,17 @@ export function Contact({ address, phone, email, workHours }: Props) {
                 <p className="text-xs text-destructive">{state.fieldErrors.body}</p>
               )}
             </div>
+            {/* Honeypot: hidden from humans, filled by bots -> silently dropped server-side. */}
+            <div className="hidden" aria-hidden="true">
+              <Label htmlFor="contact-company">Компани</Label>
+              <Input
+                id="contact-company"
+                name="company"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+              />
+            </div>
             <div className="flex items-center justify-between pt-1">
               <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
                 Бүх талбар нууцлагдана

@@ -1,9 +1,16 @@
 "use server";
 
+import crypto from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPin } from "@/lib/session";
-import { requireAdmin } from "@/lib/admin";
+import { ensureAdmin } from "@/lib/admin";
+import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+
+function randomPin4(): string {
+  return String(crypto.randomInt(0, 10000)).padStart(4, "0");
+}
 
 export type Result<T = void> =
   | { ok: true; data?: T; message?: string }
@@ -12,20 +19,101 @@ export type Result<T = void> =
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = new Set(["TEACHER", "APPROVER", "ADMIN"]);
 
-function revalidateAll() {
+/** True when a Prisma operation failed because the target record no longer exists. */
+function isNotFound(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025"
+  );
+}
+
+/** Wrap a mutation so missing-record errors become clean Result errors instead of 500s. */
+async function guardNotFound(
+  notFoundMsg: string,
+  fn: () => Promise<unknown>,
+): Promise<Result> {
+  try {
+    await fn();
+    return { ok: true };
+  } catch (err) {
+    if (isNotFound(err)) return { ok: false, error: notFoundMsg };
+    throw err;
+  }
+}
+
+// Targeted revalidation helpers — the old `revalidateAll()` flushed 12
+// unrelated paths on every mutation. Each helper below only invalidates
+// pages that actually depend on the changed model.
+
+function revalidateUsers() {
   revalidatePath("/dashboard/admin");
-  revalidatePath("/dashboard/admin/students");
-  revalidatePath("/dashboard/admin/classrooms");
+  revalidatePath("/dashboard/admin/users");
+  revalidatePath("/dashboard/admin/codes");
   revalidatePath("/dashboard/teacher");
+  revalidatePath("/login");
+}
+
+function revalidateSignatures() {
+  revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/signatures");
+  revalidatePath("/dashboard/teacher");
+  revalidatePath("/dashboard/accountant");
+}
+
+function revalidateClassrooms() {
+  revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/classrooms");
+  revalidatePath("/dashboard/admin/students");
   revalidatePath("/classes");
   revalidatePath("/");
-  revalidatePath("/about");
-  revalidatePath("/tour");
-  revalidatePath("/quality");
-  revalidatePath("/protection");
-  revalidatePath("/news");
-  revalidatePath("/contact");
-  revalidatePath("/login");
+}
+
+function revalidateContent(kind:
+  | "announcements"
+  | "news"
+  | "tour"
+  | "gallery"
+  | "achievements"
+  | "faq"
+  | "events"
+  | "testimonials"
+  | "clubs"
+) {
+  revalidatePath("/dashboard/admin");
+  switch (kind) {
+    case "announcements":
+      revalidatePath("/");
+      break;
+    case "news":
+      revalidatePath("/");
+      revalidatePath("/news");
+      break;
+    case "tour":
+      revalidatePath("/tour");
+      break;
+    case "gallery":
+      revalidatePath("/");
+      revalidatePath("/dashboard/admin/gallery");
+      break;
+    case "achievements":
+      revalidatePath("/");
+      revalidatePath("/dashboard/admin/achievements");
+      break;
+    case "faq":
+      revalidatePath("/");
+      revalidatePath("/dashboard/admin/faq");
+      break;
+    case "events":
+      revalidatePath("/");
+      revalidatePath("/dashboard/admin/events");
+      break;
+    case "testimonials":
+      revalidatePath("/");
+      revalidatePath("/dashboard/admin/testimonials");
+      break;
+    case "clubs":
+      revalidatePath("/");
+      break;
+  }
 }
 
 export async function createUser(input: {
@@ -35,7 +123,8 @@ export async function createUser(input: {
   email?: string | null;
   pin?: string;
 }): Promise<Result<{ id: string }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const name = input.name.trim();
   const position = input.position.trim();
   const role = input.role.trim();
@@ -63,7 +152,8 @@ export async function createUser(input: {
     select: { id: true },
   });
 
-  revalidateAll();
+  await logAudit({ action: "user.create", targetType: "user", targetId: created.id, metadata: { name, role, position } });
+  revalidateUsers();
   return { ok: true, data: { id: created.id }, message: "Хэрэглэгч үүсгэлээ." };
 }
 
@@ -71,7 +161,8 @@ export async function updateUser(
   id: string,
   input: { name?: string; position?: string; role?: string; email?: string | null },
 ): Promise<Result> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   if (!id) return { ok: false, error: "ID шаардлагатай." };
 
   const data: Record<string, unknown> = {};
@@ -105,15 +196,32 @@ export async function updateUser(
     data.email = email;
   }
 
-  await prisma.user.update({ where: { id }, data });
-  revalidateAll();
+  const res = await guardNotFound("Хэрэглэгч олдсонгүй.", () =>
+    prisma.user.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  await logAudit({ action: "user.update", targetType: "user", targetId: id, metadata: data });
+  revalidateUsers();
   return { ok: true, message: "Хадгалагдлаа." };
 }
 
 export async function deleteUser(id: string): Promise<Result> {
-  await requireAdmin();
-  await prisma.user.delete({ where: { id } });
-  revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: { name: true, role: true },
+  });
+  if (!target) return { ok: false, error: "Хэрэглэгч олдсонгүй." };
+  if (target.role === "ADMIN") {
+    return { ok: false, error: "Админ хэрэглэгчийг устгах боломжгүй." };
+  }
+  const res = await guardNotFound("Хэрэглэгч олдсонгүй.", () =>
+    prisma.user.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  await logAudit({ action: "user.delete", targetType: "user", targetId: id, metadata: { name: target.name, role: target.role } });
+  revalidateUsers();
   return { ok: true, message: "Хэрэглэгч устгагдлаа." };
 }
 
@@ -121,19 +229,32 @@ export async function resetUserPin(
   id: string,
   newPin: string = "0000",
 ): Promise<Result> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const pin = newPin.trim();
   if (pin.length < 4 || pin.length > 8) {
     return { ok: false, error: "PIN 4-8 тэмдэгт байх ёстой." };
   }
+  // Block resetting an admin's PIN from this page, same as regenerateTeacherPin.
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: { role: true },
+  });
+  if (!target) return { ok: false, error: "Хэрэглэгч олдсонгүй." };
+  if (target.role === "ADMIN") {
+    return { ok: false, error: "Админы PIN-ийг энэ хуудаснаас reset хийх боломжгүй." };
+  }
+
   const hashed = await hashPin(pin);
   await prisma.user.update({ where: { id }, data: { pin: hashed } });
-  revalidateAll();
+  await logAudit({ action: "user.reset_pin", targetType: "user", targetId: id });
+  revalidateUsers();
   return { ok: true, message: `PIN ${pin} болж шинэчлэгдлээ.` };
 }
 
 export async function resetAllPins(newPin: string = "0000"): Promise<Result<{ count: number }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const pin = newPin.trim();
   if (pin.length < 4 || pin.length > 8) {
     return { ok: false, error: "PIN 4-8 тэмдэгт байх ёстой." };
@@ -143,28 +264,118 @@ export async function resetAllPins(newPin: string = "0000"): Promise<Result<{ co
     where: { role: { not: "ADMIN" } },
     data: { pin: hashed },
   });
-  revalidateAll();
+  await logAudit({ action: "user.reset_all_pins", metadata: { count: result.count } });
+  revalidateUsers();
   return { ok: true, data: { count: result.count }, message: `${result.count} хэрэглэгчийн PIN шинэчлэгдлээ.` };
 }
 
+/**
+ * Generate a random 4-digit PIN for one teacher, hash it, and return the
+ * plaintext ONCE so the admin can hand it over. After this call, the plaintext
+ * is unrecoverable — only the bcrypt hash is stored.
+ */
+export async function regenerateTeacherPin(
+  id: string,
+): Promise<Result<{ plainPin: string; name: string }>> {
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  if (!id) return { ok: false, error: "ID шаардлагатай." };
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, name: true, role: true },
+  });
+  if (!user) return { ok: false, error: "Хэрэглэгч олдсонгүй." };
+  if (user.role === "ADMIN") {
+    return { ok: false, error: "Админы PIN-ийг энэ хуудаснаас reset хийх боломжгүй." };
+  }
+
+  const plainPin = randomPin4();
+  const hashed = await hashPin(plainPin);
+  await prisma.user.update({ where: { id }, data: { pin: hashed } });
+  await logAudit({ action: "user.regen_pin", targetType: "user", targetId: id });
+  revalidateUsers();
+  return {
+    ok: true,
+    data: { plainPin, name: user.name },
+    message: `${user.name}-ийн PIN шинэчлэгдлээ.`,
+  };
+}
+
+/**
+ * Regenerate PINs for ALL non-admin users at once. Returns each user's new
+ * plaintext PIN so the admin can print a distribution sheet. Plaintext is
+ * NOT stored — only the bcrypt hashes.
+ *
+ * All updates run inside a single transaction so a mid-loop failure doesn't
+ * leave half the staff with new PINs the admin never saw.
+ */
+export async function regenerateAllTeacherPins(): Promise<
+  Result<{ items: Array<{ id: string; name: string; position: string; plainPin: string }> }>
+> {
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const users = await prisma.user.findMany({
+    where: { role: { not: "ADMIN" } },
+    orderBy: [{ position: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, position: true },
+  });
+
+  // Hash outside the transaction (bcrypt is slow; keeping it out of the txn
+  // avoids the pool sitting idle while we compute hashes).
+  const prepared = await Promise.all(
+    users.map(async (u) => {
+      const plainPin = randomPin4();
+      const hashed = await hashPin(plainPin);
+      return { id: u.id, name: u.name, position: u.position, plainPin, hashed };
+    }),
+  );
+
+  await prisma.$transaction(
+    async (tx) => {
+      for (const p of prepared) {
+        await tx.user.update({ where: { id: p.id }, data: { pin: p.hashed } });
+      }
+    },
+    { timeout: 60_000, maxWait: 10_000 },
+  );
+
+  const items = prepared.map(({ hashed: _hashed, ...rest }) => rest);
+  await logAudit({ action: "user.regen_all_pins", metadata: { count: items.length } });
+  revalidateUsers();
+  return {
+    ok: true,
+    data: { items },
+    message: `${items.length} хэрэглэгчийн PIN шинэчлэгдлээ.`,
+  };
+}
+
 export async function deleteSignature(id: string): Promise<Result> {
-  await requireAdmin();
-  await prisma.signature.delete({ where: { id } });
-  revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Гарын үсэг олдсонгүй.", () =>
+    prisma.signature.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  await logAudit({ action: "signature.delete", targetType: "signature", targetId: id });
+  revalidateSignatures();
   return { ok: true, message: "Гарын үсэг устгагдлаа." };
 }
 
 export async function clearAllSignatures(): Promise<Result<{ count: number }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const result = await prisma.signature.deleteMany({});
-  revalidateAll();
+  await logAudit({ action: "signature.clear_all", metadata: { count: result.count } });
+  revalidateSignatures();
   return { ok: true, data: { count: result.count }, message: `${result.count} гарын үсэг устгагдлаа.` };
 }
 
 export async function clearTeacherSignatures(teacherId: string): Promise<Result<{ count: number }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const result = await prisma.signature.deleteMany({ where: { teacherId } });
-  revalidateAll();
+  await logAudit({ action: "signature.clear_for_teacher", targetType: "user", targetId: teacherId, metadata: { count: result.count } });
+  revalidateSignatures();
   return { ok: true, data: { count: result.count }, message: `${result.count} гарын үсэг устгагдлаа.` };
 }
 
@@ -179,7 +390,8 @@ export async function createClassroom(input: {
   capacity?: number;
   studentCount?: number;
 }): Promise<Result<{ id: string }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const grade = input.grade;
   const section = input.section.trim();
   const label = input.label.trim();
@@ -200,7 +412,8 @@ export async function createClassroom(input: {
     data: { grade, section, label, headTeacher, room, capacity, studentCount },
     select: { id: true },
   });
-  revalidateAll();
+  await logAudit({ action: "classroom.create", targetType: "classroom", targetId: created.id, metadata: { grade, section, label } });
+  revalidateClassrooms();
   return { ok: true, data: { id: created.id }, message: "Анги үүсгэлээ." };
 }
 
@@ -215,7 +428,8 @@ export async function updateClassroom(
     status?: string;
   },
 ): Promise<Result> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   if (!id) return { ok: false, error: "ID шаардлагатай." };
 
   const data: Record<string, unknown> = {};
@@ -226,15 +440,24 @@ export async function updateClassroom(
   if (input.studentCount !== undefined) data.studentCount = input.studentCount;
   if (input.status !== undefined) data.status = input.status;
 
-  await prisma.classroom.update({ where: { id }, data });
-  revalidateAll();
+  const res = await guardNotFound("Анги олдсонгүй.", () =>
+    prisma.classroom.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  await logAudit({ action: "classroom.update", targetType: "classroom", targetId: id, metadata: data });
+  revalidateClassrooms();
   return { ok: true, message: "Хадгалагдлаа." };
 }
 
 export async function deleteClassroom(id: string): Promise<Result> {
-  await requireAdmin();
-  await prisma.classroom.delete({ where: { id } });
-  revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Анги олдсонгүй.", () =>
+    prisma.classroom.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  await logAudit({ action: "classroom.delete", targetType: "classroom", targetId: id });
+  revalidateClassrooms();
   return { ok: true, message: "Анги устгагдлаа." };
 }
 
@@ -258,7 +481,8 @@ export async function createStudent(input: {
   attendance?: number;
   gpa?: number;
 }): Promise<Result<{ id: string }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
   const gender = sanitizeGender(input.gender);
@@ -295,7 +519,8 @@ export async function createStudent(input: {
       where: { id: classroom.id },
       data: { studentCount: { increment: 1 } },
     });
-    revalidateAll();
+    await logAudit({ action: "student.create", targetType: "student", targetId: created.id, metadata: { classroomId: classroom.id, code } });
+    revalidateClassrooms();
     return { ok: true, data: { id: created.id }, message: "Сурагч нэмэгдлээ." };
   } catch (err) {
     console.error("[createStudent]", err);
@@ -315,7 +540,8 @@ export async function updateStudent(
     chosen?: boolean;
   },
 ): Promise<Result> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   if (!id) return { ok: false, error: "ID шаардлагатай." };
   const existing = await prisma.student.findUnique({ where: { id } });
   if (!existing) return { ok: false, error: "Сурагч олдсонгүй." };
@@ -368,12 +594,14 @@ export async function updateStudent(
     }
   });
 
-  revalidateAll();
+  await logAudit({ action: "student.update", targetType: "student", targetId: id, metadata: { moved } });
+  revalidateClassrooms();
   return { ok: true, message: "Хадгалагдлаа." };
 }
 
 export async function deleteStudent(id: string): Promise<Result> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const existing = await prisma.student.findUnique({ where: { id } });
   if (!existing) return { ok: false, error: "Сурагч олдсонгүй." };
   await prisma.$transaction(async (tx) => {
@@ -383,7 +611,8 @@ export async function deleteStudent(id: string): Promise<Result> {
       data: { studentCount: { decrement: 1 } },
     });
   });
-  revalidateAll();
+  await logAudit({ action: "student.delete", targetType: "student", targetId: id, metadata: { code: existing.code } });
+  revalidateClassrooms();
   return { ok: true, message: "Сурагч устгагдлаа." };
 }
 
@@ -391,9 +620,13 @@ export async function setStudentChosen(
   id: string,
   chosen: boolean,
 ): Promise<Result> {
-  await requireAdmin();
-  await prisma.student.update({ where: { id }, data: { chosen: !!chosen } });
-  revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Сурагч олдсонгүй.", () =>
+    prisma.student.update({ where: { id }, data: { chosen: !!chosen } }),
+  );
+  if (!res.ok) return res;
+  revalidateClassrooms();
   return { ok: true, message: chosen ? "Сонгосон болов." : "Сонголт цуцаллаа." };
 }
 
@@ -401,13 +634,14 @@ export async function setStudentsChosenBulk(
   ids: string[],
   chosen: boolean,
 ): Promise<Result<{ count: number }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   if (ids.length === 0) return { ok: true, data: { count: 0 } };
   const result = await prisma.student.updateMany({
     where: { id: { in: ids } },
     data: { chosen: !!chosen },
   });
-  revalidateAll();
+  revalidateClassrooms();
   return { ok: true, data: { count: result.count }, message: `${result.count} сурагч шинэчлэгдлээ.` };
 }
 
@@ -431,7 +665,8 @@ export async function importStudents(
   rows: ImportStudentRow[],
   options?: { replace?: boolean },
 ): Promise<Result<{ inserted: number; updated: number }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const classroom = await prisma.classroom.findUnique({ where: { id: classroomId } });
   if (!classroom) return { ok: false, error: "Анги олдсонгүй." };
 
@@ -498,7 +733,8 @@ export async function importStudents(
     { timeout: 30000, maxWait: 10000 },
   );
 
-  revalidateAll();
+  await logAudit({ action: "student.import", targetType: "classroom", targetId: classroom.id, metadata: { inserted, updated, replace: !!options?.replace } });
+  revalidateClassrooms();
   return {
     ok: true,
     data: { inserted, updated },
@@ -524,7 +760,8 @@ export async function createSectionFromPool(input: {
   pickCount: number;
   preferChosen?: boolean;
 }): Promise<Result<{ classroomId: string; movedCount: number; chosenIncluded: number }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const grade = input.grade;
   const section = normalizeSection(input.section);
   const label = input.label.trim();
@@ -556,9 +793,11 @@ export async function createSectionFromPool(input: {
     };
   }
 
+  // Cryptographically secure Fisher-Yates so redistribution is not biased or
+  // predictable (Math.random has known PRNG issues).
   function shuffleInPlace<T>(arr: T[]) {
     for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = crypto.randomInt(0, i + 1);
       [arr[i], arr[j]] = [arr[j]!, arr[i]!];
     }
   }
@@ -588,7 +827,6 @@ export async function createSectionFromPool(input: {
     chosenIncluded = picked.filter((s) => s.chosen).length;
   }
 
-  // Track how many leave each source classroom so we can update counts
   // Group picked students by their source classroom so we can do one UPDATE per
   // source instead of N individual updates. This keeps the transaction short
   // enough to fit inside Prisma's default 5s interactive-transaction budget.
@@ -637,7 +875,8 @@ export async function createSectionFromPool(input: {
     { timeout: 20000, maxWait: 10000 },
   );
 
-  revalidateAll();
+  await logAudit({ action: "classroom.create_from_pool", targetType: "classroom", targetId: result.classroomId, metadata: { grade, section, moved: picked.length, chosenIncluded } });
+  revalidateClassrooms();
   return {
     ok: true,
     data: {
@@ -660,7 +899,8 @@ export async function createSectionFromPool(input: {
 export async function revertSection(
   classroomId: string,
 ): Promise<Result<{ returnedCount: number }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const classroom = await prisma.classroom.findUnique({
     where: { id: classroomId },
     include: { students: true },
@@ -679,7 +919,8 @@ export async function revertSection(
   if (returning.length === 0) {
     // Empty classroom — just delete it
     await prisma.classroom.delete({ where: { id: classroom.id } });
-    revalidateAll();
+    await logAudit({ action: "classroom.revert_empty", targetType: "classroom", targetId: classroom.id });
+    revalidateClassrooms();
     return { ok: true, data: { returnedCount: 0 }, message: "Хоосон бүлэг устгагдлаа." };
   }
 
@@ -713,7 +954,8 @@ export async function revertSection(
     { timeout: 20000, maxWait: 10000 },
   );
 
-  revalidateAll();
+  await logAudit({ action: "classroom.revert", targetType: "classroom", targetId: classroom.id, metadata: { returned: returning.length } });
+  revalidateClassrooms();
   return {
     ok: true,
     data: { returnedCount: returning.length },
@@ -724,40 +966,50 @@ export async function revertSection(
 // ── Announcement CRUD ─────────────────────────────────────────
 
 export async function createAnnouncement(input: { text: string; order?: number }): Promise<Result<{ id: string }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const text = input.text.trim();
   if (!text) return { ok: false, error: "Мэдээлэл шаардлагатай." };
   const created = await prisma.announcement.create({
     data: { text, order: input.order ?? 0 },
     select: { id: true },
   });
-  revalidateAll();
+  revalidateContent("announcements");
   return { ok: true, data: { id: created.id }, message: "Зарлал үүсгэлээ." };
 }
 
 export async function updateAnnouncement(id: string, input: { text?: string; order?: number; active?: boolean }): Promise<Result> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   if (!id) return { ok: false, error: "ID шаардлагатай." };
   const data: Record<string, unknown> = {};
   if (input.text !== undefined) data.text = input.text.trim();
   if (input.order !== undefined) data.order = input.order;
   if (input.active !== undefined) data.active = input.active;
-  await prisma.announcement.update({ where: { id }, data });
-  revalidateAll();
+  const res = await guardNotFound("Зарлал олдсонгүй.", () =>
+    prisma.announcement.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("announcements");
   return { ok: true, message: "Хадгалагдлаа." };
 }
 
 export async function deleteAnnouncement(id: string): Promise<Result> {
-  await requireAdmin();
-  await prisma.announcement.delete({ where: { id } });
-  revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Зарлал олдсонгүй.", () =>
+    prisma.announcement.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("announcements");
   return { ok: true, message: "Зарлал устгагдлаа." };
 }
 
 // ── News CRUD ─────────────────────────────────────────────────
 
 export async function createNewsItem(input: { tag: string; title: string; excerpt: string; date?: string }): Promise<Result<{ id: string }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const tag = input.tag.trim();
   const title = input.title.trim();
   const excerpt = input.excerpt.trim();
@@ -766,33 +1018,42 @@ export async function createNewsItem(input: { tag: string; title: string; excerp
     data: { tag, title, excerpt, date: input.date ? new Date(input.date) : new Date(), order: 0 },
     select: { id: true },
   });
-  revalidateAll();
+  revalidateContent("news");
   return { ok: true, data: { id: created.id }, message: "Мэдээ үүсгэлээ." };
 }
 
 export async function updateNewsItem(id: string, input: { tag?: string; title?: string; excerpt?: string }): Promise<Result> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   if (!id) return { ok: false, error: "ID шаардлагатай." };
   const data: Record<string, unknown> = {};
   if (input.tag !== undefined) data.tag = input.tag.trim();
   if (input.title !== undefined) data.title = input.title.trim();
   if (input.excerpt !== undefined) data.excerpt = input.excerpt.trim();
-  await prisma.newsItem.update({ where: { id }, data });
-  revalidateAll();
+  const res = await guardNotFound("Мэдээ олдсонгүй.", () =>
+    prisma.newsItem.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("news");
   return { ok: true, message: "Хадгалагдлаа." };
 }
 
 export async function deleteNewsItem(id: string): Promise<Result> {
-  await requireAdmin();
-  await prisma.newsItem.delete({ where: { id } });
-  revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Мэдээ олдсонгүй.", () =>
+    prisma.newsItem.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("news");
   return { ok: true, message: "Мэдээ устгагдлаа." };
 }
 
 // ── Tour Room CRUD ────────────────────────────────────────────
 
 export async function createTourRoom(input: { slug: string; label: string; subtitle: string; description: string; icon: string; panoramaUrl?: string | null }): Promise<Result<{ id: string }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const slug = input.slug.trim();
   const label = input.label.trim();
   if (!slug || !label) return { ok: false, error: "Slug, нэр шаардлагатай." };
@@ -803,12 +1064,13 @@ export async function createTourRoom(input: { slug: string; label: string; subti
     data: { slug, label, subtitle: input.subtitle.trim(), description: input.description.trim(), icon: input.icon.trim(), panoramaUrl: input.panoramaUrl?.trim() || null, order: (maxOrder._max.order ?? -1) + 1 },
     select: { id: true },
   });
-  revalidateAll();
+  revalidateContent("tour");
   return { ok: true, data: { id: created.id }, message: "Зогсолол үүсгэлээ." };
 }
 
 export async function updateTourRoom(id: string, input: { label?: string; subtitle?: string; description?: string; icon?: string; panoramaUrl?: string | null }): Promise<Result> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   if (!id) return { ok: false, error: "ID шаардлагатай." };
   const data: Record<string, unknown> = {};
   if (input.label !== undefined) data.label = input.label.trim();
@@ -816,51 +1078,75 @@ export async function updateTourRoom(id: string, input: { label?: string; subtit
   if (input.description !== undefined) data.description = input.description.trim();
   if (input.icon !== undefined) data.icon = input.icon.trim();
   if (input.panoramaUrl !== undefined) data.panoramaUrl = input.panoramaUrl?.trim() || null;
-  await prisma.tourRoom.update({ where: { id }, data });
-  revalidateAll();
+  const res = await guardNotFound("Зогсолол олдсонгүй.", () =>
+    prisma.tourRoom.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("tour");
   return { ok: true, message: "Хадгалагдлаа." };
 }
 
 export async function deleteTourRoom(id: string): Promise<Result> {
-  await requireAdmin();
-  await prisma.tourRoom.delete({ where: { id } });
-  revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Зогсолол олдсонгүй.", () =>
+    prisma.tourRoom.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("tour");
   return { ok: true, message: "Зогсолол устгагдлаа." };
 }
 
 // ── Gallery CRUD ─────────────────────────────────────────────
 export async function createGalleryImage(input: { title: string; url: string; category?: string }): Promise<Result<{ id: string }>> {
-  await requireAdmin();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
   const title = input.title.trim(); const url = input.url.trim();
   if (!title || !url) return { ok: false, error: "Нэр, URL шаардлагатай." };
   const maxOrder = await prisma.galleryImage.aggregate({ _max: { order: true } });
   const created = await prisma.galleryImage.create({ data: { title, url, category: input.category ?? "general", order: (maxOrder._max.order ?? -1) + 1 }, select: { id: true } });
-  revalidateAll();
+  revalidateContent("gallery");
   return { ok: true, data: { id: created.id }, message: "Зураг нэмэгдлээ." };
 }
 export async function updateGalleryImage(id: string, input: { title?: string; category?: string }): Promise<Result> {
-  await requireAdmin(); if (!id) return { ok: false, error: "ID шаардлагатай." };
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  if (!id) return { ok: false, error: "ID шаардлагатай." };
   const data: Record<string, unknown> = {};
   if (input.title !== undefined) data.title = input.title.trim();
   if (input.category !== undefined) data.category = input.category;
-  await prisma.galleryImage.update({ where: { id }, data }); revalidateAll();
+  const res = await guardNotFound("Зураг олдсонгүй.", () =>
+    prisma.galleryImage.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("gallery");
   return { ok: true, message: "Хадгалагдлаа." };
 }
 export async function deleteGalleryImage(id: string): Promise<Result> {
-  await requireAdmin(); await prisma.galleryImage.delete({ where: { id } }); revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Зураг олдсонгүй.", () =>
+    prisma.galleryImage.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("gallery");
   return { ok: true, message: "Зураг устгагдлаа." };
 }
 
 // ── Achievement CRUD ─────────────────────────────────────────
 export async function createAchievement(input: { name: string; grade?: string; award: string; year: number; category?: string; image?: string }): Promise<Result<{ id: string }>> {
-  await requireAdmin(); const name = input.name.trim(); const award = input.award.trim();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const name = input.name.trim(); const award = input.award.trim();
   if (!name || !award) return { ok: false, error: "Нэр, шагнал шаардлагатай." };
   const created = await prisma.achievement.create({ data: { name, grade: input.grade?.trim() || null, award, year: input.year, category: input.category ?? "olimpiad", image: input.image || null, order: 0 }, select: { id: true } });
-  revalidateAll();
+  revalidateContent("achievements");
   return { ok: true, data: { id: created.id }, message: "Амжилт нэмэгдлээ." };
 }
 export async function updateAchievement(id: string, input: { name?: string; grade?: string; award?: string; year?: number; category?: string; image?: string }): Promise<Result> {
-  await requireAdmin(); if (!id) return { ok: false, error: "ID шаардлагатай." };
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  if (!id) return { ok: false, error: "ID шаардлагатай." };
   const data: Record<string, unknown> = {};
   if (input.name !== undefined) data.name = input.name.trim();
   if (input.grade !== undefined) data.grade = input.grade?.trim() || null;
@@ -868,46 +1154,74 @@ export async function updateAchievement(id: string, input: { name?: string; grad
   if (input.year !== undefined) data.year = input.year;
   if (input.category !== undefined) data.category = input.category;
   if (input.image !== undefined) data.image = input.image || null;
-  await prisma.achievement.update({ where: { id }, data }); revalidateAll();
+  const res = await guardNotFound("Амжилт олдсонгүй.", () =>
+    prisma.achievement.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("achievements");
   return { ok: true, message: "Хадгалагдлаа." };
 }
 export async function deleteAchievement(id: string): Promise<Result> {
-  await requireAdmin(); await prisma.achievement.delete({ where: { id } }); revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Амжилт олдсонгүй.", () =>
+    prisma.achievement.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("achievements");
   return { ok: true, message: "Амжилт устгагдлаа." };
 }
 
 // ── FAQ CRUD ─────────────────────────────────────────────────
 export async function createFaq(input: { question: string; answer: string }): Promise<Result<{ id: string }>> {
-  await requireAdmin(); const question = input.question.trim(); const answer = input.answer.trim();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const question = input.question.trim(); const answer = input.answer.trim();
   if (!question || !answer) return { ok: false, error: "Асуулт, хариулт шаардлагатай." };
   const maxOrder = await prisma.faq.aggregate({ _max: { order: true } });
   const created = await prisma.faq.create({ data: { question, answer, order: (maxOrder._max.order ?? -1) + 1 }, select: { id: true } });
-  revalidateAll();
+  revalidateContent("faq");
   return { ok: true, data: { id: created.id }, message: "Асуулт нэмэгдлээ." };
 }
 export async function updateFaq(id: string, input: { question?: string; answer?: string }): Promise<Result> {
-  await requireAdmin(); if (!id) return { ok: false, error: "ID шаардлагатай." };
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  if (!id) return { ok: false, error: "ID шаардлагатай." };
   const data: Record<string, unknown> = {};
   if (input.question !== undefined) data.question = input.question.trim();
   if (input.answer !== undefined) data.answer = input.answer.trim();
-  await prisma.faq.update({ where: { id }, data }); revalidateAll();
+  const res = await guardNotFound("Асуулт олдсонгүй.", () =>
+    prisma.faq.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("faq");
   return { ok: true, message: "Хадгалагдлаа." };
 }
 export async function deleteFaq(id: string): Promise<Result> {
-  await requireAdmin(); await prisma.faq.delete({ where: { id } }); revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Асуулт олдсонгүй.", () =>
+    prisma.faq.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("faq");
   return { ok: true, message: "Асуулт устгагдлаа." };
 }
 
 // ── Event CRUD ───────────────────────────────────────────────
 export async function createEvent(input: { title: string; date: string; time?: string; location?: string; description: string; type?: string }): Promise<Result<{ id: string }>> {
-  await requireAdmin(); const title = input.title.trim();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const title = input.title.trim();
   if (!title) return { ok: false, error: "Нэр шаардлагатай." };
   const created = await prisma.event.create({ data: { title, date: new Date(input.date), time: input.time?.trim() || null, location: input.location?.trim() || null, description: input.description.trim(), type: input.type ?? "school", order: 0 }, select: { id: true } });
-  revalidateAll();
+  revalidateContent("events");
   return { ok: true, data: { id: created.id }, message: "Үйл явдал нэмэгдлээ." };
 }
 export async function updateEvent(id: string, input: { title?: string; date?: string; time?: string; location?: string; description?: string; type?: string }): Promise<Result> {
-  await requireAdmin(); if (!id) return { ok: false, error: "ID шаардлагатай." };
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  if (!id) return { ok: false, error: "ID шаардлагатай." };
   const data: Record<string, unknown> = {};
   if (input.title !== undefined) data.title = input.title.trim();
   if (input.date !== undefined) data.date = new Date(input.date);
@@ -915,59 +1229,207 @@ export async function updateEvent(id: string, input: { title?: string; date?: st
   if (input.location !== undefined) data.location = input.location?.trim() || null;
   if (input.description !== undefined) data.description = input.description.trim();
   if (input.type !== undefined) data.type = input.type;
-  await prisma.event.update({ where: { id }, data }); revalidateAll();
+  const res = await guardNotFound("Үйл явдал олдсонгүй.", () =>
+    prisma.event.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("events");
   return { ok: true, message: "Хадгалагдлаа." };
 }
 export async function deleteEvent(id: string): Promise<Result> {
-  await requireAdmin(); await prisma.event.delete({ where: { id } }); revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Үйл явдал олдсонгүй.", () =>
+    prisma.event.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("events");
   return { ok: true, message: "Үйл явдал устгагдлаа." };
 }
 
 // ── Testimonial CRUD ─────────────────────────────────────────
 export async function createTestimonial(input: { name: string; role: string; text: string; rating?: number }): Promise<Result<{ id: string }>> {
-  await requireAdmin(); const name = input.name.trim(); const text = input.text.trim();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const name = input.name.trim(); const text = input.text.trim();
   if (!name || !text) return { ok: false, error: "Нэр, сэтгэгдэл шаардлагатай." };
   const maxOrder = await prisma.testimonial.aggregate({ _max: { order: true } });
   const created = await prisma.testimonial.create({ data: { name, role: input.role.trim(), text, rating: input.rating ?? 5, order: (maxOrder._max.order ?? -1) + 1 }, select: { id: true } });
-  revalidateAll();
+  revalidateContent("testimonials");
   return { ok: true, data: { id: created.id }, message: "Сэтгэгдэл нэмэгдлээ." };
 }
 export async function updateTestimonial(id: string, input: { name?: string; role?: string; text?: string; rating?: number }): Promise<Result> {
-  await requireAdmin(); if (!id) return { ok: false, error: "ID шаардлагатай." };
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  if (!id) return { ok: false, error: "ID шаардлагатай." };
   const data: Record<string, unknown> = {};
   if (input.name !== undefined) data.name = input.name.trim();
   if (input.role !== undefined) data.role = input.role.trim();
   if (input.text !== undefined) data.text = input.text.trim();
   if (input.rating !== undefined) data.rating = input.rating;
-  await prisma.testimonial.update({ where: { id }, data }); revalidateAll();
+  const res = await guardNotFound("Сэтгэгдэл олдсонгүй.", () =>
+    prisma.testimonial.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("testimonials");
   return { ok: true, message: "Хадгалагдлаа." };
 }
 export async function deleteTestimonial(id: string): Promise<Result> {
-  await requireAdmin(); await prisma.testimonial.delete({ where: { id } }); revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Сэтгэгдэл олдсонгүй.", () =>
+    prisma.testimonial.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("testimonials");
   return { ok: true, message: "Сэтгэгдэл устгагдлаа." };
 }
 
 // ── Club CRUD ────────────────────────────────────────────────
 export async function createClub(input: { name: string; description: string; teacher?: string; schedule?: string; icon?: string }): Promise<Result<{ id: string }>> {
-  await requireAdmin(); const name = input.name.trim();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const name = input.name.trim();
   if (!name) return { ok: false, error: "Нэр шаардлагатай." };
   const maxOrder = await prisma.club.aggregate({ _max: { order: true } });
   const created = await prisma.club.create({ data: { name, description: input.description.trim(), teacher: input.teacher?.trim() || null, schedule: input.schedule?.trim() || null, icon: input.icon?.trim() || null, order: (maxOrder._max.order ?? -1) + 1 }, select: { id: true } });
-  revalidateAll();
+  revalidateContent("clubs");
   return { ok: true, data: { id: created.id }, message: "Дугуйлан нэмэгдлээ." };
 }
 export async function updateClub(id: string, input: { name?: string; description?: string; teacher?: string; schedule?: string; icon?: string }): Promise<Result> {
-  await requireAdmin(); if (!id) return { ok: false, error: "ID шаардлагатай." };
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  if (!id) return { ok: false, error: "ID шаардлагатай." };
   const data: Record<string, unknown> = {};
   if (input.name !== undefined) data.name = input.name.trim();
   if (input.description !== undefined) data.description = input.description.trim();
   if (input.teacher !== undefined) data.teacher = input.teacher?.trim() || null;
   if (input.schedule !== undefined) data.schedule = input.schedule?.trim() || null;
   if (input.icon !== undefined) data.icon = input.icon?.trim() || null;
-  await prisma.club.update({ where: { id }, data }); revalidateAll();
+  const res = await guardNotFound("Дугуйлан олдсонгүй.", () =>
+    prisma.club.update({ where: { id }, data }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("clubs");
   return { ok: true, message: "Хадгалагдлаа." };
 }
 export async function deleteClub(id: string): Promise<Result> {
-  await requireAdmin(); await prisma.club.delete({ where: { id } }); revalidateAll();
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+  const res = await guardNotFound("Дугуйлан олдсонгүй.", () =>
+    prisma.club.delete({ where: { id } }),
+  );
+  if (!res.ok) return res;
+  revalidateContent("clubs");
   return { ok: true, message: "Дугуйлан устгагдлаа." };
+}
+
+// ── Student fetching (per-grade for scalability) ───────────
+
+export type StudentRow = {
+  id: string;
+  code: string;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  attendance: number;
+  gpa: number;
+  chosen: boolean;
+  previousClassroomId: string | null;
+};
+
+export type StudentClassroomRow = {
+  id: string;
+  grade: number;
+  section: string;
+  label: string;
+  headTeacher: string;
+  room: string | null;
+  capacity: number;
+  status: string;
+  students: StudentRow[];
+};
+
+/**
+ * Fetch students for a single grade. Called by StudentsPanel when the user
+ * switches grade tabs — avoids loading all 3000+ students upfront.
+ */
+export async function getStudentsByGrade(
+  grade: number,
+): Promise<Result<StudentClassroomRow[]>> {
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+
+  const classrooms = await prisma.classroom.findMany({
+    where: { grade },
+    orderBy: { section: "asc" },
+    include: {
+      students: {
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        select: {
+          id: true,
+          code: true,
+          firstName: true,
+          lastName: true,
+          gender: true,
+          attendance: true,
+          gpa: true,
+          chosen: true,
+          previousClassroomId: true,
+        },
+      },
+    },
+  });
+
+  return {
+    ok: true,
+    data: classrooms.map((c) => ({
+      id: c.id,
+      grade: c.grade,
+      section: c.section,
+      label: c.label,
+      headTeacher: c.headTeacher,
+      room: c.room,
+      capacity: c.capacity,
+      status: c.status,
+      students: c.students.map((s) => ({
+        id: s.id,
+        code: s.code,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        gender: s.gender,
+        attendance: s.attendance,
+        gpa: s.gpa,
+        chosen: s.chosen,
+        previousClassroomId: s.previousClassroomId,
+      })),
+    })),
+  };
+}
+
+/**
+ * Fetch just the classroom metadata (no students) for the students page.
+ * The StudentsPanel will call getStudentsByGrade() for the active grade.
+ */
+export async function getClassroomMeta(): Promise<
+  Result<Array<{ id: string; grade: number; section: string; label: string; headTeacher: string; room: string | null; capacity: number; status: string }>>
+> {
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+
+  const classrooms = await prisma.classroom.findMany({
+    orderBy: [{ grade: "asc" }, { section: "asc" }],
+    select: {
+      id: true,
+      grade: true,
+      section: true,
+      label: true,
+      headTeacher: true,
+      room: true,
+      capacity: true,
+      status: true,
+    },
+  });
+
+  return { ok: true, data: classrooms };
 }

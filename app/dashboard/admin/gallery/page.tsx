@@ -6,7 +6,7 @@ import GalleryPanel from "../GalleryPanel";
 
 export default async function GalleryPage() {
   const access = await canAccessAdmin();
-  if (!access.allowed) return <AdminGate />;
+  if (access.role !== "ADMIN") return <AdminGate role={access.role as "APPROVER" | null} />;
 
   const gallery = await prisma.galleryImage.findMany({
     orderBy: { order: "asc" },

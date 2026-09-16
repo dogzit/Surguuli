@@ -2,59 +2,40 @@
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Loader2 } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Eye, EyeOff, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { loginAsAdmin } from "@/app/actions/admin-login";
 
-export default function AdminGate() {
+// .env-д ямар ч төрлийн passcode тавьсан ч 64 тэмдэгт хүрэлцэнэ.
+const PIN_MAX = 64;
+const PIN_MIN = 4;
+
+interface AdminGateProps {
+  // Server-с ирэх role — null = session байхгүй, "APPROVER" = session
+  // байгаа боловч admin PIN дутуу.
+  role?: "ADMIN" | "APPROVER" | "TEACHER" | null;
+}
+
+export default function AdminGate({ role = null }: AdminGateProps) {
   const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
   const [pending, start] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const submittedRef = useRef(false);
-  const [checking, setChecking] = useState(true);
-  const [hasAdminRole, setHasAdminRole] = useState(false);
-  const refreshAttempted = useRef(false);
 
   useEffect(() => {
-    // Only block the PIN gate if the user's role grants admin access
-    // (ADMIN/APPROVER). Teachers with a position must still be able to
-    // enter the admin PIN.
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.role === "APPROVER" || data.role === "ADMIN") {
-          setHasAdminRole(true);
-        }
-        setChecking(false);
-      })
-      .catch(() => setChecking(false));
+    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => {
-    if (!checking && !hasAdminRole) {
-      const t = setTimeout(() => inputRef.current?.focus(), 60);
-      return () => clearTimeout(t);
-    }
-  }, [checking, hasAdminRole]);
-
-  // If the user already has an APPROVER/ADMIN session, try to refresh the
-  // page once so the server-side canAccessAdmin check re-evaluates.
-  useEffect(() => {
-    if (hasAdminRole && !refreshAttempted.current) {
-      refreshAttempted.current = true;
-      router.refresh();
-    }
-  }, [hasAdminRole, router]);
-
-  const submit = (value: string) => {
+  const submit = () => {
     if (pending) return;
-    submittedRef.current = true;
+    const trimmed = pin.trim();
+    if (trimmed.length < PIN_MIN) return;
     start(async () => {
-      const res = await loginAsAdmin(value);
-      submittedRef.current = false;
+      const res = await loginAsAdmin(trimmed);
       if (res.success) {
         router.refresh();
       } else {
@@ -67,97 +48,81 @@ export default function AdminGate() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (pin.length >= 4) submit(pin);
+    submit();
   };
 
-  useEffect(() => {
-    if (pin.length >= 4 && !pending && !submittedRef.current) {
-      submit(pin);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pin]);
-
-  // ADMIN/APPROVER session exists – show spinner while we refresh
-  if (hasAdminRole) {
-    return (
-      <main className="flex items-center justify-center px-4 pb-6 pt-10 sm:pt-14">
-        <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-          <p className="mt-3 text-sm font-semibold text-foreground">
-            Ачааллаж байна...
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Таны эрхийг шалгаж байна
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  if (checking) {
-    return (
-      <main className="flex items-center justify-center px-4 pb-6 pt-10 sm:pt-14">
-        <div className="text-sm text-muted-foreground">Шалгаж байна...</div>
-      </main>
-    );
-  }
+  const heading =
+    role === "APPROVER"
+      ? "Админ хэсэг · Нэмэлт PIN"
+      : "Super Admin Passcode";
+  const sub =
+    role === "APPROVER"
+      ? "Энэ хуудсанд орохын тулд админы passcode шаардлагатай."
+      : ".env файлын ADMIN_PIN утгыг оруулна уу";
 
   return (
     <main className="flex items-center justify-center px-4 pb-6 pt-10 sm:pt-14">
       <form
         onSubmit={onSubmit}
-        onClick={() => inputRef.current?.focus()}
-        className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm"
+        className="w-full max-w-sm space-y-4 rounded-2xl border bg-card p-6 shadow-sm"
       >
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <ShieldCheck className="h-5 w-5" />
-        </div>
-        <p className="mt-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Админ PIN
-        </p>
-
-        <div className="relative mt-3">
-          <div className="flex justify-center gap-2.5">
-            {[0, 1, 2, 3].map((i) => {
-              const filled = i < pin.length;
-              const active = i === pin.length && !pending;
-              return (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex h-12 w-11 items-center justify-center rounded-xl border-2 bg-muted/50 transition-all",
-                    filled
-                      ? "border-primary bg-primary/10"
-                      : active
-                      ? "border-primary/60 bg-card shadow-sm"
-                      : "border-border",
-                  )}
-                >
-                  {filled && <span className="h-3 w-3 rounded-full bg-primary" />}
-                </div>
-              );
-            })}
+        <div className="flex flex-col items-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            {role === "APPROVER" ? (
+              <ShieldAlert className="h-5 w-5" />
+            ) : (
+              <ShieldCheck className="h-5 w-5" />
+            )}
           </div>
-          <Input
-            ref={inputRef}
-            type="password"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            autoComplete="one-time-code"
-            maxLength={8}
-            value={pin}
-            disabled={pending}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
-            className="absolute inset-0 h-full w-full cursor-pointer rounded-xl opacity-0"
-            aria-label="Админ PIN"
-          />
+          <p className="mt-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {heading}
+          </p>
         </div>
 
-        <p className="mt-3 text-center text-xs text-muted-foreground">
-          {pending ? "Шалгаж байна..." : "PIN кодоо оруулна уу"}
-        </p>
+        <div className="space-y-1.5">
+          <div className="relative">
+            <Input
+              ref={inputRef}
+              type={showPin ? "text" : "password"}
+              autoComplete="one-time-code"
+              maxLength={PIN_MAX}
+              value={pin}
+              disabled={pending}
+              onChange={(e) => setPin(e.target.value.slice(0, PIN_MAX))}
+              placeholder="passcode..."
+              className="pr-10 tracking-widest"
+              aria-label="Admin passcode"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPin((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition hover:text-foreground"
+              tabIndex={-1}
+              aria-label={showPin ? "PIN нуух" : "PIN харах"}
+            >
+              {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">{sub}</p>
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={pending || pin.trim().length < PIN_MIN}
+        >
+          {pending ? (
+            <>
+              <span className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Шалгаж байна...
+            </>
+          ) : (
+            <>
+              <LogIn className="mr-2 h-4 w-4" />
+              Нэвтрэх
+            </>
+          )}
+        </Button>
       </form>
     </main>
   );

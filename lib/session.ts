@@ -46,7 +46,11 @@ export async function verifyPin(pin: string, stored: string | null): Promise<boo
     return bcrypt.compare(pin, stored);
   }
   // Legacy plaintext PIN — accept once, caller should re-hash.
-  return pin === stored;
+  // Compare in constant time to avoid leaking the PIN via timing.
+  const a = Buffer.from(pin);
+  const b = Buffer.from(stored);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 export function isLegacyPin(stored: string | null): boolean {

@@ -28,6 +28,8 @@ export interface GradeSummary {
   sections: number;
   headTeacher: string;
   capacity: number;
-  averageAttendance: number;
+  // null when no student rows exist yet — UI should render "-" rather than a
+  // fabricated number.
+  averageAttendance: number | null;
   status: "sealed" | "active";
 }
