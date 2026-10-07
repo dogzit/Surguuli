@@ -10,6 +10,7 @@ export default async function ClassroomsPage() {
 
   const classrooms = await prisma.classroom.findMany({
     orderBy: [{ grade: "asc" }, { section: "asc" }],
+    include: { _count: { select: { students: true } } },
   });
 
   return (
@@ -34,7 +35,7 @@ export default async function ClassroomsPage() {
           headTeacher: c.headTeacher,
           room: c.room,
           capacity: c.capacity,
-          studentCount: c.studentCount,
+          studentCount: c._count.students,
           status: c.status,
         }))}
       />

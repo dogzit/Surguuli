@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import { VirtualTour } from "@/components/home/VirtualTour";
 import { loadTourRooms } from "@/lib/site-data";
+import { loadSchoolName } from "@/lib/school-info";
 
-export const metadata: Metadata = {
-  title: "Виртуал аялал · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-  description:
-    "Сургуулийг өөрөө нэг зочилж үзээрэй — зогсоол бүр дээрх орчин үеийн боловсролын байгууламжтай танилцаарай.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await loadSchoolName();
+  return {
+    title: name ? `Виртуал аялал · ${name}` : "Виртуал аялал",
+    description:
+      "Зогсоол бүр дээрх орчин үеийн боловсролын байгууламжтай танилцаарай.",
+  };
+}
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function TourPage() {
   const rooms = await loadTourRooms();

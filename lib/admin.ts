@@ -79,6 +79,17 @@ export async function canAccessAdmin(): Promise<{ allowed: boolean; role: string
   return { allowed: false, role: null, userId: null, position: null, name: null };
 }
 
+/**
+ * True for school staff: the admin PIN cookie or any signed-in staff
+ * account (teacher, approver, admin). Students and parents are not staff.
+ * Used to gate children's personal data on public pages.
+ */
+export async function isStaffViewer(): Promise<boolean> {
+  if (await isAdmin()) return true;
+  const { getCurrentUser } = await import("./session");
+  return (await getCurrentUser()) !== null;
+}
+
 export async function requireAdmin() {
   if (!(await isAdmin())) redirect("/dashboard/admin");
 }

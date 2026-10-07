@@ -2,23 +2,33 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ClassesSection } from "@/components/home/ClassesSection";
 import { ClassesSkeleton } from "@/components/home/classes/ClassesSkeleton";
-import { loadClassrooms, summarizeByGrade } from "@/lib/classrooms";
+import { loadClassrooms } from "@/lib/classrooms";
+import { isStaffViewer } from "@/lib/admin";
+import { loadSchoolInfoBundle, loadSchoolName } from "@/lib/school-info";
 
-export const metadata: Metadata = {
-  title: "Анги бүлэг · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-  description:
-    "1—12-р ангиудын албан ёсны мэдээлэл, идэвхтэй хуваарилалт, сурагчийн ирц, дүнгийн үндсэн үзүүлэлт.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await loadSchoolName();
+  return {
+    title: name ? `Анги бүлэг · ${name}` : "Анги бүлэг",
+    description: "Анги бүлэг, ангийн багш, сурагчдын тооны албан ёсны мэдээлэл.",
+  };
+}
 
+// Rendered per request: student names are included only for signed-in
+// staff, so this page must never be cached and shared between visitors.
 export const dynamic = "force-dynamic";
 
 async function ClassesData() {
-  const classroomRows = await loadClassrooms({ includeStudentsForGrades: [2] });
-  const gradeSummaries = summarizeByGrade(classroomRows);
+  const canSeeStudents = await isStaffViewer();
+  const [classrooms, info] = await Promise.all([
+    loadClassrooms({ includeStudents: canSeeStudents }),
+    loadSchoolInfoBundle(),
+  ]);
   return (
     <ClassesSection
-      classroomRows={classroomRows}
-      gradeSummaries={gradeSummaries}
+      classrooms={classrooms}
+      gradeManagers={info.gradeManagers}
+      canSeeStudents={canSeeStudents}
     />
   );
 }

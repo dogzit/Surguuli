@@ -18,6 +18,11 @@ import {
   Calendar,
   MessageSquare,
   Image,
+  FileText,
+  KeyRound,
+  Trophy,
+  School,
+  MessageSquareHeart,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -35,6 +40,11 @@ const NAV_ITEMS: Array<{
   { href: "/dashboard/admin/signatures", label: "Гарын үсэг", icon: FileSignature },
   { href: "/dashboard/admin/classrooms", label: "Ангиуд", icon: GraduationCap },
   { href: "/dashboard/admin/students", label: "Сурагчид", icon: Users },
+  { href: "/dashboard/admin/access", label: "Нэвтрэх эрх", icon: KeyRound },
+  { href: "/dashboard/admin/portfolio", label: "Ажлын шүүлт", icon: Trophy },
+  { href: "/dashboard/admin/documents", label: "Гадаад өргөдөл", icon: FileText },
+  { href: "/dashboard/admin/feedback", label: "Санал хүсэлт", icon: MessageSquareHeart },
+  { href: "/dashboard/admin/school", label: "Сургуулийн мэдээлэл", icon: School },
   { href: "/dashboard/admin/content", label: "Контент", icon: Newspaper },
   { href: "/dashboard/admin/gallery", label: "Галерей", icon: Image, approverVisible: true },
   { href: "/dashboard/admin/achievements", label: "Амжилт", icon: Award },
@@ -46,7 +56,18 @@ const NAV_ITEMS: Array<{
   // дараад орно (эсвэл URL-аа шууд бичээд).
 ];
 
-function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role: "ADMIN" | "APPROVER" | null }) {
+// Unread counters shown as a pill next to the nav item, keyed by href.
+type Badges = Partial<Record<string, number>>;
+
+function NavLinks({
+  onNavigate,
+  role,
+  badges = {},
+}: {
+  onNavigate?: () => void;
+  role: "ADMIN" | "APPROVER" | null;
+  badges?: Badges;
+}) {
   const pathname = usePathname();
   const items = role === "ADMIN"
     ? NAV_ITEMS
@@ -93,8 +114,12 @@ function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role: "ADMIN"
                 )}
               />
               <span>{item.label}</span>
-              {isActive && (
-                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+              {badges[item.href] ? (
+                <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold tabular-nums leading-none text-primary-foreground">
+                  {badges[item.href]}
+                </span>
+              ) : (
+                isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
               )}
             </Link>
           );
@@ -116,7 +141,13 @@ function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role: "ADMIN"
   );
 }
 
-export default function AdminSidebar({ role }: { role: "ADMIN" | "APPROVER" | null }) {
+export default function AdminSidebar({
+  role,
+  badges,
+}: {
+  role: "ADMIN" | "APPROVER" | null;
+  badges?: Badges;
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -145,14 +176,14 @@ export default function AdminSidebar({ role }: { role: "ADMIN" | "APPROVER" | nu
             >
               <X className="h-4 w-4" />
             </button>
-            <NavLinks onNavigate={() => setMobileOpen(false)} role={role} />
+            <NavLinks onNavigate={() => setMobileOpen(false)} role={role} badges={badges} />
           </aside>
         </>
       )}
 
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 border-r border-border/50 bg-card/50 lg:flex lg:flex-col">
-        <NavLinks role={role} />
+        <NavLinks role={role} badges={badges} />
       </aside>
     </>
   );

@@ -12,9 +12,11 @@ import {
   Building2,
   ArrowRight,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { SectionShell } from "./SectionShell";
+import type { HistoryEntry, MissionEntry, LocationEntry } from "@/lib/school-info";
 
 const fade = {
   hidden: { opacity: 0, y: 20 },
@@ -25,94 +27,59 @@ const fade = {
   }),
 };
 
-const TIMELINE = [
-  {
-    icon: Landmark,
-    year: "1911",
-    title: "Боловсролын шинэчлэлийн үндэс",
-    body: "1911 оны Үндэсний хувьсгалын дараах шинэчлэлийн үзэл санаанаас Монголд орчин үеийн секуляр боловсролын суурь тавигдав.",
-    color: "from-amber-500/20 to-orange-500/20",
-    iconBg: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
-  },
-  {
-    icon: GraduationCap,
-    year: "1921",
-    title: "Ардын хувьсгалын дараа",
-    body: "1921 оны Ардын хувьсгалын дараа Засгийн газрын шийдвэрээр олон нийтийн сургуулиудыг байгуулж, Нийслэлийн ерөнхий боловсролын 3-р сургуулийн үндэс тавигдав.",
-    color: "from-blue-500/20 to-cyan-500/20",
-    iconBg: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
-  },
-  {
-    icon: MapPin,
-    year: "1921–1960-аад",
-    title: "Дөрвөн байршил",
-    body: "Сургууль нь түүхэндээ дөрвөн удаа байршлаа сольжээ: Улаанбаатар зочид буудлын газар → Хуримын ордны буурь → Сүхбаатар дүүрэг.",
-    color: "from-emerald-500/20 to-teal-500/20",
-    iconBg: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
-  },
-  {
-    icon: Clock,
-    year: "Өнөөдөр",
-    title: "Одоогийн байршил",
-    body: "Сүхбаатар дүүрэг, 10-р хорооны нутаг дэвсгэрт байнгын кампустайгаар үйл ажиллагаагаа явуулж байна.",
-    color: "from-violet-500/20 to-purple-500/20",
-    iconBg: "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300",
-  },
-];
+// Icon-name → component lookup. Any icon referenced by the DB seed must
+// be included here so the client can render it.
+const ICONS: Record<string, LucideIcon> = {
+  BookOpen,
+  MapPin,
+  GraduationCap,
+  Landmark,
+  Clock,
+  Users,
+  Award,
+  Building2,
+};
 
-const LOCATIONS = [
-  { num: "01", label: "Улаанбаатар зочид буудлын газар", era: "Анхны байршил" },
-  { num: "02", label: "Хуримын ордны буурь", era: "Хоёрдугаар байршил" },
-  { num: "03", label: "Сүхбаатар дүүрэг, 8-р хороо", era: "Гуравдугаар байршил" },
-  { num: "04", label: "Сүхбаатар дүүрэг, 10-р хороо", era: "Одоогийн байршил" },
+// Cycled palette for history cards — keeps the visual rhythm without
+// requiring the admin to pick colors per entry.
+const CARD_TONES = [
+  { color: "from-amber-500/20 to-orange-500/20", iconBg: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300" },
+  { color: "from-blue-500/20 to-cyan-500/20", iconBg: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" },
+  { color: "from-emerald-500/20 to-teal-500/20", iconBg: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300" },
+  { color: "from-violet-500/20 to-purple-500/20", iconBg: "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300" },
 ];
 
 function yearsSince(startYear: number) {
   return new Date().getFullYear() - startYear;
 }
 
-const MISSION = [
-  {
-    icon: BookOpen,
-    title: "Эрдэм ба судалгаа",
-    body: "STEM, хэл, урлаг, спортын хосолсон хөтөлбөр. Хоёр гадаад хэл заавал, олон улсын үнэлгээнд тогтмол оролцоно.",
-  },
-  {
-    icon: Building2,
-    title: "Ил тод удирдлага",
-    body: "Захирлын зөвлөл болон эцэг эхийн хорооны шийдвэрүүд албан ёсны цахим порталд архивлагдана.",
-  },
-  {
-    icon: Landmark,
-    title: "Хүүхэд төвтэй орчин",
-    body: "Хүүхэд хамгааллын албан ёсны бодлого, эрсдэлийн үнэлгээ, сэтгэл судлаачийн үйлчилгээ.",
-  },
-  {
-    icon: GraduationCap,
-    title: "Багшийн хөгжил",
-    body: "Багш бүр жилд 40+ цагийн мэргэшүүлэх сургалт, тэнхимийн хоорондын судалгааны төслүүд.",
-  },
-];
-
 interface AboutProps {
-  students?: string;
-  staff?: string;
-  olympiadMedals?: string;
-  foundedYear?: number;
+  students: string | null;
+  staff: string | null;
+  olympiadMedals: string | null;
+  foundedYear: number | null;
+  history: HistoryEntry[];
+  mission: MissionEntry[];
+  locations: LocationEntry[];
+  missionDescription: string | null;
 }
 
 export function About({
-  students = "1,120+",
-  staff = "84",
-  olympiadMedals = "27",
-  foundedYear = 1921,
-}: AboutProps = {}) {
+  students,
+  staff,
+  olympiadMedals,
+  foundedYear,
+  history,
+  mission,
+  locations,
+  missionDescription,
+}: AboutProps) {
   const STATS = [
-    { icon: Clock, value: `${yearsSince(foundedYear)}+`, label: "Жилийн түүх" },
-    { icon: Users, value: students, label: "Сурагч" },
-    { icon: GraduationCap, value: staff, label: "Багш, ажилтан" },
-    { icon: Award, value: olympiadMedals, label: "Олимпиадын медаль" },
-  ];
+    foundedYear ? { icon: Clock, value: `${yearsSince(foundedYear)}+`, label: "Жилийн түүх" } : null,
+    students ? { icon: Users, value: students, label: "Сурагч" } : null,
+    staff ? { icon: GraduationCap, value: staff, label: "Багш, ажилтан" } : null,
+    olympiadMedals ? { icon: Award, value: olympiadMedals, label: "Олимпиадын медаль" } : null,
+  ].filter((s): s is { icon: LucideIcon; value: string; label: string } => s !== null);
 
   return (
     <>
@@ -144,202 +111,208 @@ export function About({
             Бидний <span className="text-primary">түүх</span>
           </motion.h1>
 
-          <motion.p
-            custom={2}
-            initial="hidden"
-            animate="visible"
-            variants={fade}
-            className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg"
-          >
-            1921 онд байгуулагдсанаас хойш Монголын боловсролын салбарт тэргүүлэх,
-            чанартай сургалтыг 100 гаруй жил тасралтгүй явуулж ирсэн уламжлалтай сургууль.
-          </motion.p>
+          {foundedYear && (
+            <motion.p
+              custom={2}
+              initial="hidden"
+              animate="visible"
+              variants={fade}
+              className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg"
+            >
+              {foundedYear} онд байгуулагдсанаас хойш {yearsSince(foundedYear)}+
+              жилийн турш чанартай сургалтыг тасралтгүй явуулж ирсэн уламжлалтай сургууль.
+            </motion.p>
+          )}
 
-          {/* Stats Row */}
-          <motion.div
-            custom={3}
-            initial="hidden"
-            animate="visible"
-            variants={fade}
-            className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-4"
-          >
-            {STATS.map((s) => {
-              const Icon = s.icon;
-              return (
-                <div key={s.label} className="rounded-xl border border-border/60 bg-background/60 p-4 backdrop-blur">
-                  <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Icon className="h-4 w-4" />
+          {STATS.length > 0 && (
+            <motion.div
+              custom={3}
+              initial="hidden"
+              animate="visible"
+              variants={fade}
+              className={`mt-10 grid gap-4 sm:grid-cols-${Math.min(STATS.length, 4)} grid-cols-2`}
+            >
+              {STATS.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <div key={s.label} className="rounded-xl border border-border/60 bg-background/60 p-4 backdrop-blur">
+                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="mt-3 text-2xl font-bold tabular-nums text-foreground md:text-3xl">
+                      {s.value}
+                    </div>
+                    <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                      {s.label}
+                    </div>
                   </div>
-                  <div className="mt-3 text-2xl font-bold tabular-nums text-foreground md:text-3xl">
-                    {s.value}
-                  </div>
-                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                    {s.label}
-                  </div>
-                </div>
-              );
-            })}
-          </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
         </div>
       </section>
 
       {/* Timeline */}
-      <SectionShell
-        id="about"
-        tone="light"
-        eyebrow="Түүхэн хугацаа"
-        title="100+ жилийн замнал"
-        description="1911 оны шинэчлэлээс эхлэн өнөөдрийг хүртэлх Нийслэлийн ерөнхий боловсролын 3-р сургуулийн түүхэн замнал."
-      >
-        <div className="relative">
-          {/* Vertical line */}
-          <div className="absolute left-6 top-0 bottom-0 hidden w-px bg-border md:block" />
+      {history.length > 0 && (
+        <SectionShell
+          id="about"
+          tone="light"
+          eyebrow="Түүхэн хугацаа"
+          title={foundedYear ? `${yearsSince(foundedYear)}+ жилийн замнал` : "Түүхэн замнал"}
+          description="Сургуулийн үндэслэлээс өнөөдрийг хүртэлх гол үе шатууд."
+        >
+          <div className="relative">
+            <div className="absolute left-6 top-0 bottom-0 hidden w-px bg-border md:block" />
 
-          <div className="space-y-6">
-            {TIMELINE.map((t, i) => {
-              const Icon = t.icon;
-              return (
+            <div className="space-y-6">
+              {history.map((t, i) => {
+                const Icon = ICONS[t.icon ?? ""] ?? Landmark;
+                const tone = CARD_TONES[i % CARD_TONES.length]!;
+                return (
+                  <motion.div
+                    key={`${t.year}-${i}`}
+                    custom={i}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-50px" }}
+                    variants={fade}
+                    className="relative flex gap-6"
+                  >
+                    <div className="relative z-10 hidden shrink-0 md:block">
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-full ${tone.iconBg} ring-4 ring-background`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                    </div>
+                    <Card className="flex-1 overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
+                      <div className={`h-1 w-full bg-gradient-to-r ${tone.color}`} />
+                      <div className="p-5">
+                        <div className="flex items-center gap-3">
+                          <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl md:hidden ${tone.iconBg}`}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="text-[11px] font-semibold uppercase tracking-widest text-primary">
+                              {t.year}
+                            </div>
+                            <h3 className="text-base font-semibold text-foreground">
+                              {t.title}
+                            </h3>
+                          </div>
+                        </div>
+                        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                          {t.body}
+                        </p>
+                      </div>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </SectionShell>
+      )}
+
+      {/* Campus Journey */}
+      {locations.length > 0 && (
+        <section className="border-b border-border/50 bg-muted/30">
+          <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 md:py-16 lg:px-8">
+            <div className="max-w-2xl">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+                {locations.length} байршил
+              </div>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+                Сургуулийн аялал
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
+                Сургууль нь түүхэндээ хэд хэдэн удаа байршлаа сольж, эцэст нь одоогийн газардаа хүрсэн.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {locations.map((loc, i) => (
                 <motion.div
-                  key={t.year}
+                  key={`${loc.num}-${i}`}
                   custom={i}
                   initial="hidden"
                   whileInView="visible"
-                  viewport={{ once: true, margin: "-50px" }}
+                  viewport={{ once: true }}
                   variants={fade}
-                  className="relative flex gap-6"
+                  className="group relative"
                 >
-                  {/* Dot on timeline */}
-                  <div className="relative z-10 hidden shrink-0 md:block">
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-full ${t.iconBg} ring-4 ring-background`}>
+                  <Card className="relative overflow-hidden p-5 transition hover:-translate-y-1 hover:shadow-lg">
+                    <div className="absolute -right-4 -top-4 text-[100px] font-bold leading-none text-muted/30 transition group-hover:text-primary/10">
+                      {loc.num}
+                    </div>
+                    <div className="relative">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <MapPin className="h-5 w-5" />
+                      </div>
+                      <div className="mt-3 text-[11px] font-semibold uppercase tracking-widest text-primary">
+                        {loc.era}
+                      </div>
+                      <h3 className="mt-2 text-sm font-semibold text-foreground">
+                        {loc.label}
+                      </h3>
+                      {i < locations.length - 1 && (
+                        <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
+                          <ArrowRight className="h-3 w-3" />
+                          <span>Дараагийнх руу</span>
+                        </div>
+                      )}
+                      {i === locations.length - 1 && (
+                        <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Одоо энд
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Mission & Values */}
+      {mission.length > 0 && (
+        <SectionShell
+          id="mission"
+          tone="light"
+          eyebrow="Эрхэм зорилго"
+          title="Бидний зорилго"
+          description={missionDescription ?? undefined}
+        >
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {mission.map((m, i) => {
+              const Icon = ICONS[m.icon] ?? BookOpen;
+              return (
+                <motion.div
+                  key={`${m.title}-${i}`}
+                  custom={i}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  variants={fade}
+                >
+                  <Card className="h-full p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                       <Icon className="h-5 w-5" />
                     </div>
-                  </div>
-
-                  {/* Card */}
-                  <Card className="flex-1 overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
-                    <div className={`h-1 w-full bg-gradient-to-r ${t.color}`} />
-                    <div className="p-5">
-                      <div className="flex items-center gap-3">
-                        <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl md:hidden ${t.iconBg}`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-semibold uppercase tracking-widest text-primary">
-                            {t.year}
-                          </div>
-                          <h3 className="text-base font-semibold text-foreground">
-                            {t.title}
-                          </h3>
-                        </div>
-                      </div>
-                      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                        {t.body}
-                      </p>
-                    </div>
+                    <h3 className="mt-4 text-base font-semibold text-foreground">
+                      {m.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      {m.body}
+                    </p>
                   </Card>
                 </motion.div>
               );
             })}
           </div>
-        </div>
-      </SectionShell>
-
-      {/* Campus Journey */}
-      <section className="border-b border-border/50 bg-muted/30">
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 md:py-16 lg:px-8">
-          <div className="max-w-2xl">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
-              Дөрвөн байршил
-            </div>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-              Сургуулийн аялал
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
-              Нийслэлийн ерөнхий боловсролын 3-р сургууль нь түүхэндээ дөрвөн удаа байршлаа сольж, эцэст нь одоогийн газардаа хүрсэн.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {LOCATIONS.map((loc, i) => (
-              <motion.div
-                key={loc.num}
-                custom={i}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={fade}
-                className="group relative"
-              >
-                <Card className="relative overflow-hidden p-5 transition hover:-translate-y-1 hover:shadow-lg">
-                  <div className="absolute -right-4 -top-4 text-[100px] font-bold leading-none text-muted/30 transition group-hover:text-primary/10">
-                    {loc.num}
-                  </div>
-                  <div className="relative">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <MapPin className="h-5 w-5" />
-                    </div>
-                    <div className="mt-3 text-[11px] font-semibold uppercase tracking-widest text-primary">
-                      {loc.era}
-                    </div>
-                    <h3 className="mt-2 text-sm font-semibold text-foreground">
-                      {loc.label}
-                    </h3>
-                    {i < LOCATIONS.length - 1 && (
-                      <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
-                        <ArrowRight className="h-3 w-3" />
-                        <span>Дараагийнх руу</span>
-                      </div>
-                    )}
-                    {i === LOCATIONS.length - 1 && (
-                      <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        Одоо энд
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Mission & Values */}
-      <SectionShell
-        id="mission"
-        tone="light"
-        eyebrow="Эрхэм зорилго"
-        title="Бидний зорилго"
-        description="Хүүхэд бүр эрдэм номын гэрлээр гэрэлтэж, өөрийгөө болон нийгмээ хүндэтгэж сурах — энэ бол бидний тэргүүлэх зорилго."
-      >
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {MISSION.map((m, i) => {
-            const Icon = m.icon;
-            return (
-              <motion.div
-                key={m.title}
-                custom={i}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={fade}
-              >
-                <Card className="h-full p-5 transition hover:-translate-y-0.5 hover:shadow-md">
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="mt-4 text-base font-semibold text-foreground">
-                    {m.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    {m.body}
-                  </p>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
-      </SectionShell>
+        </SectionShell>
+      )}
     </>
   );
 }

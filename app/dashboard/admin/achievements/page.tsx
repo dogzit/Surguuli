@@ -3,6 +3,7 @@ import { canAccessAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import AdminGate from "../AdminGate";
 import { SimpleListPanel } from "../ContentPanel";
+import { PageHero } from "../PageHero";
 
 export default async function AchievementsPage() {
   const access = await canAccessAdmin();
@@ -12,19 +13,22 @@ export default async function AchievementsPage() {
     orderBy: { year: "desc" },
   });
 
+  const years = new Set(achievements.map((a) => a.year));
+  const latestYear = achievements[0]?.year;
+
   return (
     <>
-      <div className="mb-6 flex items-center gap-3">
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
-          <Award className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Амжилт</h1>
-          <p className="text-xs text-muted-foreground">
-            Олимпиад, тэмцээний амжилтууд
-          </p>
-        </div>
-      </div>
+      <PageHero
+        icon={Award}
+        title="Амжилт"
+        subtitle="Олимпиад, тэмцээн, шагналын бүртгэл"
+        accent="amber"
+        stats={[
+          { label: "Нийт амжилт", value: achievements.length, tone: "accent" },
+          { label: "Он", value: years.size },
+          ...(latestYear ? [{ label: "Сүүлийн", value: latestYear } as const] : []),
+        ]}
+      />
       <SimpleListPanel items={achievements.map((a) => ({ id: a.id, name: a.name, grade: a.grade, award: a.award, year: a.year, category: a.category, order: a.order }))} type="achievement" />
     </>
   );

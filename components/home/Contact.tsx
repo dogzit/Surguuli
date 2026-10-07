@@ -17,22 +17,24 @@ import {
 import { cn } from "@/lib/utils";
 
 interface Props {
+  schoolName: string;
   address: string;
   phone: string;
   email: string;
   workHours: string;
+  mapUrl: string;
 }
 
 const ICONS = [MapPin, Phone, Mail, Clock] as const;
 const INITIAL_STATE: ContactFormState = { ok: false, message: "" };
 
-export function Contact({ address, phone, email, workHours }: Props) {
+export function Contact({ schoolName, address, phone, email, workHours, mapUrl }: Props) {
   const rows = [
     { icon: ICONS[0], label: "Хаяг", value: address },
     { icon: ICONS[1], label: "Утас", value: phone },
     { icon: ICONS[2], label: "И-мэйл", value: email },
     { icon: ICONS[3], label: "Ажлын цаг", value: workHours },
-  ];
+  ].filter((r) => r.value);
 
   const [state, formAction] = useFormState(submitContactMessage, INITIAL_STATE);
 
@@ -72,17 +74,22 @@ export function Contact({ address, phone, email, workHours }: Props) {
             })}
           </dl>
 
-          <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-              `Монгол улсын 3 дугаар сургууль ${address}`,
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Google Maps дээр байршлыг харах
-          </a>
+          {(mapUrl || address) && (
+            <a
+              href={
+                mapUrl ||
+                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  [schoolName, address].filter(Boolean).join(" "),
+                )}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Google Maps дээр байршлыг харах
+            </a>
+          )}
 
           <div className="mt-6 rounded-lg border border-border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
             <span className="font-semibold text-foreground">Санамж.</span> Албан
@@ -132,7 +139,7 @@ export function Contact({ address, phone, email, workHours }: Props) {
                 aria-invalid={state.fieldErrors?.body ? true : undefined}
                 className={cn(
                   state.fieldErrors?.body &&
-                    "border-destructive focus-visible:ring-destructive",
+                  "border-destructive focus-visible:ring-destructive",
                 )}
               />
               {state.fieldErrors?.body && (

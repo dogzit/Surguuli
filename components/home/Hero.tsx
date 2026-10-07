@@ -15,26 +15,36 @@ const fade = {
 };
 
 interface HeroProps {
-  students: string;
-  staff: string;
-  foundedYear?: string;
-  principalName?: string;
-  principalQuote?: string;
+  // Everything is nullable so we can render honestly when the DB row is
+  // missing — no more fake defaults ("1,120+", "Хоролгарав") that pretend
+  // to be real school data.
+  schoolName: string | null;
+  district: string | null;
+  city: string | null;
+  foundedYear: string | null;
+  students: string | null;
+  staff: string | null;
+  principalName: string | null;
+  principalQuote: string | null;
 }
 
 export function Hero({
+  schoolName,
+  district,
+  city,
+  foundedYear,
   students,
   staff,
-  foundedYear = "1921",
-  principalName = "Хоролгарав",
-  principalQuote = "Хүүхэд бүр эрдэм номын гэрлээр гэрэлтэж, өөрийгөө болон нийгмээ хүндэтгэж сурах — энэ бол бидний сургалтын тэргүүлэх зорилго.",
+  principalName,
+  principalQuote,
 }: HeroProps) {
   const STATS = [
     { k: foundedYear, v: "Байгуулагдсан он" },
     { k: students, v: "Сурагч" },
     { k: staff, v: "Багш, ажилтан" },
-  ];
-  const principalInitial = principalName.trim().charAt(0) || "Х";
+  ].filter((s): s is { k: string; v: string } => !!s.k);
+  const principalInitial = principalName?.trim().charAt(0) ?? "";
+  const locationLine = [city, district].filter(Boolean).join(", ");
 
   return (
     <section
@@ -63,27 +73,42 @@ export function Hero({
             <ShieldCheck className="h-3 w-3" />
             Албан ёсны цахим хуудас
           </motion.div>
-          <motion.h1
-            custom={1}
-            initial="hidden"
-            animate="visible"
-            variants={fade}
-            className="mt-5 text-3xl font-bold tracking-tight text-foreground md:text-5xl"
-          >
-            Нийслэлийн ерөнхий боловсролын 3-р сургууль
-          </motion.h1>
-          <motion.p
-            custom={2}
-            initial="hidden"
-            animate="visible"
-            variants={fade}
-            className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base"
-          >
-            <span className="font-semibold text-foreground">Нийслэлийн ерөнхий боловсролын 3-р сургууль</span>{" "}
-            нь 1921 оны Ардын хувьсгалын дараа байгуулагдсан Монголын анхны
-            олон нийтийн сургуулиудын нэг бөгөөд Сүхбаатар дүүрэг, 10-р хорооны
-            нутаг дэвсгэрт өнөөдрийг хүртэл үйл ажиллагаагаа явуулж байна.
-          </motion.p>
+          {schoolName && (
+            <motion.h1
+              custom={1}
+              initial="hidden"
+              animate="visible"
+              variants={fade}
+              className="mt-5 text-3xl font-bold tracking-tight text-foreground md:text-5xl"
+            >
+              {schoolName}
+            </motion.h1>
+          )}
+          {(schoolName || foundedYear || locationLine) && (
+            <motion.p
+              custom={2}
+              initial="hidden"
+              animate="visible"
+              variants={fade}
+              className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base"
+            >
+              {schoolName && (
+                <span className="font-semibold text-foreground">{schoolName}</span>
+              )}
+              {foundedYear && (
+                <>
+                  {" "}
+                  нь {foundedYear} онд байгуулагдсан
+                </>
+              )}
+              {locationLine && (
+                <>
+                  {" "}
+                  бөгөөд {locationLine}-т үйл ажиллагаагаа явуулж байна.
+                </>
+              )}
+            </motion.p>
+          )}
 
           <motion.div
             custom={4}
@@ -105,41 +130,47 @@ export function Hero({
           </motion.div>
         </div>
 
-        <motion.div
-          custom={2}
-          initial="hidden"
-          animate="visible"
-          variants={fade}
-        >
-          <Card className="relative hidden overflow-hidden p-6 md:block">
-            <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <Logo size={18} />
-                Захирлын мэндчилгээ
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-                <ShieldCheck className="h-3 w-3" />
-                Батлагдсан
-              </span>
-            </div>
-            <blockquote className="mt-4 text-base italic leading-relaxed text-foreground md:text-lg">
-              «{principalQuote}»
-            </blockquote>
-            <div className="mt-5 flex items-center gap-3 border-t border-border pt-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                {principalInitial}
+        {(principalName || principalQuote) && (
+          <motion.div
+            custom={2}
+            initial="hidden"
+            animate="visible"
+            variants={fade}
+          >
+            <Card className="relative hidden overflow-hidden p-6 md:block">
+              <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Logo size={18} />
+                  Захирлын мэндчилгээ
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                  <ShieldCheck className="h-3 w-3" />
+                  Батлагдсан
+                </span>
               </div>
-              <div>
-                <div className="text-sm font-semibold text-foreground">
-                  {principalName}
+              {principalQuote && (
+                <blockquote className="mt-4 text-base italic leading-relaxed text-foreground md:text-lg">
+                  «{principalQuote}»
+                </blockquote>
+              )}
+              {principalName && (
+                <div className="mt-5 flex items-center gap-3 border-t border-border pt-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                    {principalInitial}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">
+                      {principalName}
+                    </div>
+                    <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                      Сургуулийн захирал
+                    </div>
+                  </div>
                 </div>
-                <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                  Сургуулийн захирал
-                </div>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
+              )}
+            </Card>
+          </motion.div>
+        )}
       </div>
     </section>
   );

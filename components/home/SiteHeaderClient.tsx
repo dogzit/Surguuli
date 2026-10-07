@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, LogIn, User, LogOut } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
+import { NotificationBell } from "./NotificationBell";
 import { AnnouncementBar } from "./AnnouncementBar";
 import { cn } from "@/lib/utils";
 
@@ -21,13 +22,14 @@ const NAV_LINKS = [
   { href: "/quality", label: "Сургалтын чанар" },
   { href: "/protection", label: "Хүүхэд хамгаалал" },
   { href: "/news", label: "Мэдээ" },
+  { href: "/feedback", label: "Санал хүсэлт" },
   { href: "/contact", label: "Холбоо" },
 ] as const;
 
 export function SiteHeaderClient({ announcements }: { announcements: string[] }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [authState, setAuthState] = useState<{ loggedIn: boolean; role?: string; name?: string }>({ loggedIn: false });
+  const [authState, setAuthState] = useState<{ loggedIn: boolean; role?: string; name?: string; homePath?: string }>({ loggedIn: false });
   const pathname = usePathname();
 
   useEffect(() => {
@@ -135,11 +137,12 @@ export function SiteHeaderClient({ announcements }: { announcements: string[] })
 
           {/* Desktop Actions */}
           <div className="hidden shrink-0 items-center gap-2 xl:flex">
+            <NotificationBell />
             <ThemeToggle />
             {authState.loggedIn ? (
               <div className="flex items-center gap-2">
                 <Link
-                  href={authState.role === "ADMIN" || authState.role === "APPROVER" ? "/dashboard/admin" : "/dashboard/teacher"}
+                  href={authState.homePath ?? "/dashboard"}
                   className="flex items-center gap-2 rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm font-medium text-foreground transition-all hover:bg-accent hover:border-primary/30"
                 >
                   <User className="h-4 w-4" />
@@ -265,7 +268,7 @@ export function SiteHeaderClient({ announcements }: { announcements: string[] })
                   {authState.loggedIn ? (
                     <div className="space-y-2">
                       <Link
-                        href={authState.role === "ADMIN" || authState.role === "APPROVER" ? "/dashboard/admin" : "/dashboard/teacher"}
+                        href={authState.homePath ?? "/dashboard"}
                         className="flex items-center gap-3 rounded-xl bg-primary/10 px-4 py-3 text-sm font-medium text-primary"
                       >
                         <User className="h-4 w-4" />

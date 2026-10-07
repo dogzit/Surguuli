@@ -19,6 +19,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn, matchesSearch } from "@/lib/utils";
+import { FileUploader } from "@/components/ui/file-uploader";
+import { RichEditor } from "@/components/ui/rich-editor";
 import {
   createAnnouncement, updateAnnouncement, deleteAnnouncement,
   createNewsItem, updateNewsItem, deleteNewsItem,
@@ -32,8 +34,8 @@ import {
 } from "@/app/actions/admin";
 
 export interface AdminAnnouncement { id: string; text: string; order: number; active: boolean; }
-export interface AdminNewsItem { id: string; tag: string; title: string; excerpt: string; date: string; order: number; }
-export interface AdminTourRoom { id: string; slug: string; label: string; subtitle: string; description: string; icon: string; panoramaUrl: string | null; order: number; }
+export interface AdminNewsItem { id: string; tag: string; title: string; excerpt: string; body: string | null; coverImage: string | null; slug: string | null; status: string; date: string; order: number; }
+export interface AdminTourRoom { id: string; slug: string; label: string; subtitle: string; description: string; icon: string; panoramaUrl: string | null; videoUrl: string | null; photoUrl: string | null; order: number; }
 export interface AdminGalleryImage { id: string; title: string; url: string; category: string; order: number; }
 export interface AdminAchievement { id: string; name: string; grade: string | null; award: string; year: number; category: string; image: string | null; order: number; }
 export interface AdminFaq { id: string; question: string; answer: string; order: number; }
@@ -326,8 +328,15 @@ export function SimpleListPanel({ items, type }: { items: any[]; type: string })
       let res;
       switch (type) {
         case "announcement": res = await createAnnouncement({ text: form.text ?? "", order: 0 }); break;
-        case "news": res = await createNewsItem({ tag: form.tag ?? "", title: form.title ?? "", excerpt: form.excerpt ?? "" }); break;
-        case "tour": res = await createTourRoom({ slug: form.slug ?? "", label: form.label ?? "", subtitle: form.subtitle ?? "", description: form.description ?? "", icon: form.icon ?? "DoorOpen", panoramaUrl: form.panoramaUrl || null }); break;
+        case "news": res = await createNewsItem({
+          tag: form.tag ?? "",
+          title: form.title ?? "",
+          excerpt: form.excerpt ?? "",
+          body: form.body ?? undefined,
+          coverImage: form.coverImage || null,
+          status: (form.status as "draft" | "published") ?? "published",
+        }); break;
+        case "tour": res = await createTourRoom({ slug: form.slug ?? "", label: form.label ?? "", subtitle: form.subtitle ?? "", description: form.description ?? "", icon: form.icon ?? "DoorOpen", panoramaUrl: form.panoramaUrl || null, videoUrl: form.videoUrl || null, photoUrl: form.photoUrl || null }); break;
         case "gallery": res = await createGalleryImage({ title: form.title ?? "", url: form.url ?? "", category: form.category ?? "general" }); break;
         case "achievement": res = await createAchievement({ name: form.name ?? "", grade: form.grade, award: form.award ?? "", year: Number(form.year) || 2025, category: form.category ?? "olimpiad", image: form.image || undefined }); break;
         case "faq": res = await createFaq({ question: form.question ?? "", answer: form.answer ?? "" }); break;
@@ -511,6 +520,37 @@ export function SimpleListPanel({ items, type }: { items: any[]; type: string })
               <div className="space-y-1.5"><Label>Таг</Label><Input value={form.tag ?? ""} onChange={(e) => setForm({ ...form, tag: e.target.value })} placeholder="Захиргаа" className="rounded-xl" /></div>
               <div className="space-y-1.5"><Label>Гарчиг</Label><Input value={form.title ?? ""} onChange={(e) => setForm({ ...form, title: e.target.value })} className="rounded-xl" /></div>
               <div className="space-y-1.5"><Label>Товч</Label><Input value={form.excerpt ?? ""} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} className="rounded-xl" /></div>
+              <div className="space-y-1.5">
+                <Label>Ковер зураг</Label>
+                <FileUploader
+                  value={form.coverImage || null}
+                  onChange={(url) => setForm({ ...form, coverImage: url ?? "" })}
+                  category="image"
+                  aspect="video"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Дэлгэрэнгүй агуулга</Label>
+                <RichEditor
+                  value={form.body ?? ""}
+                  onChange={(html) => setForm({ ...form, body: html })}
+                  placeholder="Мэдээний бүтэн текст, зураг, холбоос…"
+                  minHeight={220}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Төлөв</Label>
+                <Select
+                  value={form.status ?? "published"}
+                  onValueChange={(v) => setForm({ ...form, status: v })}
+                >
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="published">Нийтлэх</SelectItem>
+                    <SelectItem value="draft">Ноорог</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </>)}
             {type === "tour" && (<>
               <div className="space-y-1.5"><Label>Slug</Label><Input value={form.slug ?? ""} onChange={(e) => setForm({ ...form, slug: e.target.value })} className="rounded-xl" /></div>
@@ -518,10 +558,26 @@ export function SimpleListPanel({ items, type }: { items: any[]; type: string })
               <div className="space-y-1.5"><Label>Дэд нэр</Label><Input value={form.subtitle ?? ""} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} className="rounded-xl" /></div>
               <div className="space-y-1.5"><Label>Тайлбар</Label><Input value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-xl" /></div>
               <div className="space-y-1.5"><Label>Icon</Label><Input value={form.icon ?? ""} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="DoorOpen" className="rounded-xl" /></div>
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-2">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Медиа (нэг сонго — эрэмбээр 360→бичлэг→зураг)
+                </div>
+                <div className="space-y-1"><Label className="text-xs">360° панорам JPG URL</Label><Input value={form.panoramaUrl ?? ""} onChange={(e) => setForm({ ...form, panoramaUrl: e.target.value })} placeholder="https://... equirectangular.jpg" className="rounded-xl" /></div>
+                <div className="space-y-1"><Label className="text-xs">MP4 бичлэг URL (DJI Neo / iPhone)</Label><Input value={form.videoUrl ?? ""} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} placeholder="https://... walkthrough.mp4" className="rounded-xl" /></div>
+                <div className="space-y-1"><Label className="text-xs">Ганц зураг URL (iPhone Pano)</Label><Input value={form.photoUrl ?? ""} onChange={(e) => setForm({ ...form, photoUrl: e.target.value })} placeholder="https://... panorama.jpg" className="rounded-xl" /></div>
+              </div>
             </>)}
             {type === "gallery" && (<>
               <div className="space-y-1.5"><Label>Нэр</Label><Input value={form.title ?? ""} onChange={(e) => setForm({ ...form, title: e.target.value })} className="rounded-xl" /></div>
-              <div className="space-y-1.5"><Label>Зурагны URL</Label><Input value={form.url ?? ""} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://..." className="rounded-xl" /></div>
+              <div className="space-y-1.5">
+                <Label>Зураг</Label>
+                <FileUploader
+                  value={form.url || null}
+                  onChange={(url) => setForm({ ...form, url: url ?? "" })}
+                  category="image"
+                  aspect="video"
+                />
+              </div>
               <div className="space-y-1.5"><Label>Ангилал</Label>
                 <Select value={form.category ?? "school"} onValueChange={(v) => setForm({ ...form, category: v })}>
                   <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
@@ -552,37 +608,12 @@ export function SimpleListPanel({ items, type }: { items: any[]; type: string })
               </div>
               <div className="space-y-1.5">
                 <Label>Зураг</Label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (ev) => setForm({ ...form, image: ev.target?.result as string });
-                      reader.readAsDataURL(file);
-                    }}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                  />
-                  <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-border/50 bg-muted/30 p-4 transition-colors hover:border-primary/30 hover:bg-muted/50">
-                    {form.image ? (
-                      <div className="relative">
-                        <img src={form.image} alt="Preview" className="h-20 w-20 rounded-xl object-cover" />
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setForm({ ...form, image: "" }); }} className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                          <Plus className="h-4 w-4 text-primary" />
-                        </div>
-                        <p className="text-xs text-muted-foreground">Зураг нэмэх</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <FileUploader
+                  value={form.image || null}
+                  onChange={(url) => setForm({ ...form, image: url ?? "" })}
+                  category="image"
+                  aspect="square"
+                />
               </div>
             </>)}
             {type === "faq" && (<>
@@ -683,6 +714,12 @@ function EditDialog({
     if (item.subtitle !== undefined) initialValues.subtitle = item.subtitle;
     if (item.description !== undefined) initialValues.description = item.description;
     if (item.icon !== undefined) initialValues.icon = item.icon;
+    if (item.panoramaUrl !== undefined) initialValues.panoramaUrl = item.panoramaUrl ?? "";
+    if (item.videoUrl !== undefined) initialValues.videoUrl = item.videoUrl ?? "";
+    if (item.photoUrl !== undefined) initialValues.photoUrl = item.photoUrl ?? "";
+    if (item.body !== undefined) initialValues.body = item.body ?? "";
+    if (item.coverImage !== undefined) initialValues.coverImage = item.coverImage ?? "";
+    if (item.status !== undefined) initialValues.status = item.status;
     if (item.name !== undefined) initialValues.name = item.name;
     if (item.award !== undefined) initialValues.award = item.award;
     if (item.grade !== undefined) initialValues.grade = item.grade ?? "";
@@ -706,8 +743,15 @@ function EditDialog({
       let res;
       switch (type) {
         case "announcement": res = await updateAnnouncement(item.id, { text: form.text }); break;
-        case "news": res = await updateNewsItem(item.id, { tag: form.tag, title: form.title, excerpt: form.excerpt }); break;
-        case "tour": res = await updateTourRoom(item.id, { label: form.label, subtitle: form.subtitle, description: form.description, icon: form.icon }); break;
+        case "news": res = await updateNewsItem(item.id, {
+          tag: form.tag,
+          title: form.title,
+          excerpt: form.excerpt,
+          body: form.body ?? null,
+          coverImage: form.coverImage ?? null,
+          status: form.status === "draft" ? "draft" : "published",
+        }); break;
+        case "tour": res = await updateTourRoom(item.id, { label: form.label, subtitle: form.subtitle, description: form.description, icon: form.icon, panoramaUrl: form.panoramaUrl, videoUrl: form.videoUrl, photoUrl: form.photoUrl }); break;
         case "gallery": res = await updateGalleryImage(item.id, { title: form.title, category: form.category }); break;
         case "achievement": res = await updateAchievement(item.id, { name: form.name, grade: form.grade, award: form.award, year: Number(form.year), category: form.category, image: form.image }); break;
         case "faq": res = await updateFaq(item.id, { question: form.question, answer: form.answer }); break;
@@ -739,6 +783,37 @@ function EditDialog({
             <div className="space-y-1.5"><Label>Таг</Label><Input value={form.tag ?? ""} onChange={(e) => setForm({ ...form, tag: e.target.value })} className="rounded-xl" /></div>
             <div className="space-y-1.5"><Label>Гарчиг</Label><Input value={form.title ?? ""} onChange={(e) => setForm({ ...form, title: e.target.value })} className="rounded-xl" /></div>
             <div className="space-y-1.5"><Label>Товч</Label><Input value={form.excerpt ?? ""} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} className="rounded-xl" /></div>
+            <div className="space-y-1.5">
+              <Label>Ковер зураг</Label>
+              <FileUploader
+                value={form.coverImage || null}
+                onChange={(url) => setForm({ ...form, coverImage: url ?? "" })}
+                category="image"
+                aspect="video"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Дэлгэрэнгүй агуулга</Label>
+              <RichEditor
+                value={form.body ?? ""}
+                onChange={(html) => setForm({ ...form, body: html })}
+                placeholder="Мэдээний бүтэн текст…"
+                minHeight={220}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Төлөв</Label>
+              <Select
+                value={form.status ?? "published"}
+                onValueChange={(v) => setForm({ ...form, status: v })}
+              >
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="published">Нийтлэх</SelectItem>
+                  <SelectItem value="draft">Ноорог</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </>)}
           {type === "faq" && (<>
             <div className="space-y-1.5"><Label>Асуулт</Label><Input value={form.question ?? ""} onChange={(e) => setForm({ ...form, question: e.target.value })} className="rounded-xl" /></div>
@@ -764,37 +839,12 @@ function EditDialog({
             <div className="space-y-1.5"><Label>Он</Label><Input type="text" inputMode="numeric" value={form.year ?? ""} onChange={(e) => setForm({ ...form, year: e.target.value.replace(/[^\d]/g, "").slice(0, 4) })} className="rounded-xl" /></div>
             <div className="space-y-1.5">
               <Label>Зураг</Label>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setForm({ ...form, image: ev.target?.result as string });
-                    reader.readAsDataURL(file);
-                  }}
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                />
-                <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-border/50 bg-muted/30 p-4 transition-colors hover:border-primary/30 hover:bg-muted/50">
-                  {form.image ? (
-                    <div className="relative">
-                      <img src={form.image} alt="Preview" className="h-20 w-20 rounded-xl object-cover" />
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setForm({ ...form, image: "" }); }} className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                        <Plus className="h-4 w-4 text-primary" />
-                      </div>
-                      <p className="text-xs text-muted-foreground">Зураг нэмэх</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <FileUploader
+                value={form.image || null}
+                onChange={(url) => setForm({ ...form, image: url ?? "" })}
+                category="image"
+                aspect="square"
+              />
             </div>
           </>)}
           {type === "tour" && (<>
@@ -802,6 +852,14 @@ function EditDialog({
             <div className="space-y-1.5"><Label>Дэд нэр</Label><Input value={form.subtitle ?? ""} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} className="rounded-xl" /></div>
             <div className="space-y-1.5"><Label>Тайлбар</Label><Input value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-xl" /></div>
             <div className="space-y-1.5"><Label>Icon</Label><Input value={form.icon ?? ""} onChange={(e) => setForm({ ...form, icon: e.target.value })} className="rounded-xl" /></div>
+            <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-2">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Медиа (нэг сонго — эрэмбээр 360→бичлэг→зураг)
+              </div>
+              <div className="space-y-1"><Label className="text-xs">360° панорам JPG URL</Label><Input value={form.panoramaUrl ?? ""} onChange={(e) => setForm({ ...form, panoramaUrl: e.target.value })} placeholder="https://... equirectangular.jpg" className="rounded-xl" /></div>
+              <div className="space-y-1"><Label className="text-xs">MP4 бичлэг URL (DJI Neo / iPhone)</Label><Input value={form.videoUrl ?? ""} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} placeholder="https://... walkthrough.mp4" className="rounded-xl" /></div>
+              <div className="space-y-1"><Label className="text-xs">Ганц зураг URL (iPhone Pano)</Label><Input value={form.photoUrl ?? ""} onChange={(e) => setForm({ ...form, photoUrl: e.target.value })} placeholder="https://... panorama.jpg" className="rounded-xl" /></div>
+            </div>
           </>)}
           {type === "club" && (<>
             <div className="space-y-1.5"><Label>Нэр</Label><Input value={form.name ?? ""} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-xl" /></div>

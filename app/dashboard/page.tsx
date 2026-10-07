@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser, roleHomePath } from "@/lib/session";
+import { actorHomePath, getCurrentActor } from "@/lib/session";
 
 export default async function DashboardIndex() {
-  const me = await getCurrentUser();
-  if (!me) redirect("/login");
-  redirect(roleHomePath(me.role, me.position));
+  // Route ALL signed-in actors (staff / student / parent) to whichever
+  // dashboard is theirs. This is the /dashboard entry point that
+  // roleHomePath used to guard for staff only.
+  const actor = await getCurrentActor();
+  if (!actor) redirect("/login");
+  redirect(actorHomePath(actor));
 }

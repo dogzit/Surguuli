@@ -18,25 +18,65 @@ export async function loadAnnouncements(): Promise<AnnouncementRow[]> {
 // ── News Items ────────────────────────────────────────────────
 export interface NewsItemRow {
   id: string;
+  slug: string | null;
   tag: string;
   title: string;
   excerpt: string;
+  body: string | null;
+  coverImage: string | null;
+  status: string;
   date: string;
+  publishedAt: string | null;
   order: number;
 }
 
-export async function loadNewsItems(): Promise<NewsItemRow[]> {
-  const rows = await prisma.newsItem.findMany({
-    orderBy: { order: "asc" },
-  });
-  return rows.map((r) => ({
+export async function loadNewsItems(options?: {
+  includeDrafts?: boolean;
+}): Promise<NewsItemRow[]> {
+  try {
+    const rows = await prisma.newsItem.findMany({
+      where: options?.includeDrafts ? undefined : { status: "published" },
+      orderBy: [{ publishedAt: "desc" }, { date: "desc" }, { order: "asc" }],
+    });
+    return rows.map(mapNews);
+  } catch (err) {
+    console.warn("[news] DB unreachable:", err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+export async function loadNewsBySlug(slug: string): Promise<NewsItemRow | null> {
+  const row = await prisma.newsItem.findUnique({ where: { slug } });
+  if (!row || row.status !== "published") return null;
+  return mapNews(row);
+}
+
+function mapNews(r: {
+  id: string;
+  slug: string | null;
+  tag: string;
+  title: string;
+  excerpt: string;
+  body: string | null;
+  coverImage: string | null;
+  status: string;
+  date: Date;
+  publishedAt: Date | null;
+  order: number;
+}): NewsItemRow {
+  return {
     id: r.id,
+    slug: r.slug,
     tag: r.tag,
     title: r.title,
     excerpt: r.excerpt,
+    body: r.body,
+    coverImage: r.coverImage,
+    status: r.status,
     date: r.date.toISOString(),
+    publishedAt: r.publishedAt ? r.publishedAt.toISOString() : null,
     order: r.order,
-  }));
+  };
 }
 
 // ── Tour Rooms ────────────────────────────────────────────────
@@ -53,6 +93,8 @@ export interface TourRoomRow {
   description: string;
   icon: string;
   panoramaUrl: string | null;
+  videoUrl: string | null;
+  photoUrl: string | null;
   order: number;
   facts: TourRoomFact[];
 }
@@ -70,6 +112,8 @@ export async function loadTourRooms(): Promise<TourRoomRow[]> {
     description: r.description,
     icon: r.icon,
     panoramaUrl: r.panoramaUrl ?? null,
+    videoUrl: r.videoUrl ?? null,
+    photoUrl: r.photoUrl ?? null,
     order: r.order,
     facts: r.facts.map((f) => ({ key: f.key, value: f.value })),
   }));

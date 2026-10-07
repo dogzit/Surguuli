@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const SESSION_COOKIE = "session_uid";
+const SESSION_TYPE_COOKIE = "session_type";
 const ADMIN_COOKIE = "admin_uid";
+
+type ActorKind = "user" | "student" | "parent";
+const ACTOR_KINDS = new Set<ActorKind>(["user", "student", "parent"]);
 
 // Strict allowlist of real static-file extensions. Unlike `pathname.includes(".")`,
 // this cannot be bypassed with paths like /dashboard/admin.foo — a dot in a
@@ -10,6 +14,14 @@ const STATIC_FILE_RE = /\.(png|jpe?g|gif|webp|avif|svg|ico|css|js|mjs|map|txt|xm
 
 function sessionSecret(): string | null {
   const s = process.env.SESSION_SECRET || process.env.ADMIN_SECRET;
+  return s && s.length >= 16 ? s : null;
+}
+
+// Must match adminSecret() in lib/admin.ts, which signs the cookie with
+// ADMIN_SECRET first. Using sessionSecret() here rejected valid admin
+// cookies whenever the two env values differ.
+function adminSecret(): string | null {
+  const s = process.env.ADMIN_SECRET || process.env.SESSION_SECRET;
   return s && s.length >= 16 ? s : null;
 }
 
@@ -40,25 +52,35 @@ async function hmacHex(value: string, secret: string): Promise<string> {
 /** Verify the HMAC-signed admin cookie (`lib/admin.ts` format). */
 async function hasValidAdminCookie(token: string | undefined): Promise<boolean> {
   if (!token) return false;
-  const secret = sessionSecret();
+  const secret = adminSecret();
   if (!secret) return false; // fail closed
   const expected = await hmacHex("admin", secret);
   return token.length === expected.length && token === expected;
 }
 
-/** Verify the HMAC-signed session cookie (`lib/session.ts` format). */
-async function hasValidSessionCookie(token: string | undefined): Promise<boolean> {
+/**
+ * Verify the session cookie signature and confirm it matches the declared
+ * session type. Namespacing prevents replaying a student token as a
+ * user token even if signatures happened to collide.
+ */
+async function hasValidSessionOfKind(
+  token: string | undefined,
+  kind: ActorKind,
+): Promise<boolean> {
   if (!token) return false;
   const secret = sessionSecret();
   if (!secret) return false; // fail closed
   const dot = token.lastIndexOf(".");
   if (dot < 0) return false;
-  const userId = token.slice(0, dot);
+  const id = token.slice(0, dot);
   const sig = token.slice(dot + 1);
-  const expected = base64urlEncode(await hmacRaw(userId, secret));
-  // Signature comparison only — the DB-backed role check still happens
-  // server-side in layouts/pages. This is an early-bounce optimization.
+  const expected = base64urlEncode(await hmacRaw(`${kind}:${id}`, secret));
   return sig.length === expected.length && sig === expected;
+}
+
+function readSessionKind(value: string | undefined): ActorKind | null {
+  if (!value) return null;
+  return ACTOR_KINDS.has(value as ActorKind) ? (value as ActorKind) : null;
 }
 
 export async function middleware(req: NextRequest) {
@@ -73,49 +95,58 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Early gate for /dashboard/admin/*: require either a cryptographically
-  // valid admin cookie or a valid session cookie. Full role authorization
-  // (isAdmin/canAccessAdmin) is enforced again server-side in the layout and
-  // pages — this middleware exists so forgotten page-level checks cannot
-  // expose admin children to anonymous visitors.
-  //
-  // ⚠️ EXCEPTION: the root `/dashboard/admin` path is *publicly* reachable so
-  // AdminGate can render its PIN prompt. Without this exception, an admin
-  // who has neither cookie has no way to sign in — the gate is inside the
-  // dashboard shell, and the shell used to bounce anonymous visitors to
-  // `/login`, which itself only accepts user PINs. Chicken-and-egg.
+  const sessionToken = req.cookies.get(SESSION_COOKIE)?.value;
+  const sessionKind = readSessionKind(req.cookies.get(SESSION_TYPE_COOKIE)?.value);
+  const adminToken = req.cookies.get(ADMIN_COOKIE)?.value;
+
+  const sessionOk = sessionKind
+    ? await hasValidSessionOfKind(sessionToken, sessionKind)
+    : false;
+  const validSession = sessionOk ? sessionKind : null;
+
+  // 2. Admin area gating (unchanged behaviour except sessionKind must match).
   if (pathname.startsWith("/dashboard/admin")) {
-    // `/dashboard/admin` (root) болон `/dashboard/admin/audit` хоёр нь
-    // AdminGate-ыг өөрсдөө үзүүлдэг public entry point-ууд — админ PIN
-    // оруулах цорын ганц газар. Бусад sub-route бүгд cookie шаардана.
+    // Root + audit are public entry points so AdminGate can render its
+    // PIN prompt for logged-out visitors.
     if (pathname === "/dashboard/admin" || pathname === "/dashboard/admin/audit") {
       return NextResponse.next();
     }
-    const adminOk = await hasValidAdminCookie(req.cookies.get(ADMIN_COOKIE)?.value);
-    const sessionOk = await hasValidSessionCookie(req.cookies.get(SESSION_COOKIE)?.value);
-    if (!adminOk && !sessionOk) {
-      return NextResponse.redirect(new URL("/dashboard/admin/audit", req.url));
+    const adminOk = await hasValidAdminCookie(adminToken);
+    // Only staff sessions unlock admin sub-routes — student/parent sessions
+    // are recognised elsewhere but never bypass the admin gate.
+    if (!adminOk && validSession !== "user") {
+      return NextResponse.redirect(new URL("/dashboard/admin", req.url));
     }
     return NextResponse.next();
   }
 
-  const sessionToken = req.cookies.get(SESSION_COOKIE)?.value;
-  const adminToken = req.cookies.get(ADMIN_COOKIE)?.value;
-  const hasSession = !!sessionToken;
-
-  // 3. Unauthenticated visitors hitting the dashboard -> login. Admin-only
-  // cookie counts too so a PIN-only admin can hit /dashboard.
-  if (pathname.startsWith("/dashboard") && !hasSession && !adminToken) {
+  // 3. Student area — only student sessions may enter. Everyone else is
+  // sent to their own home so nobody sees a "wrong dashboard" empty state.
+  if (pathname.startsWith("/dashboard/student")) {
+    if (validSession === "student") return NextResponse.next();
+    if (validSession === "user") return NextResponse.redirect(new URL("/dashboard/admin", req.url));
+    if (validSession === "parent") return NextResponse.redirect(new URL("/dashboard/parent", req.url));
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 4. Already signed-in users (session OR verified admin cookie) skip the
-  // login page. We verify the admin cookie so a bogus one doesn't lock a
-  // guest out of the login page.
+  // 4. Parent area — same story.
+  if (pathname.startsWith("/dashboard/parent")) {
+    if (validSession === "parent") return NextResponse.next();
+    if (validSession === "user") return NextResponse.redirect(new URL("/dashboard/admin", req.url));
+    if (validSession === "student") return NextResponse.redirect(new URL("/dashboard/student", req.url));
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  // 5. Any other /dashboard path: require SOMEONE to be signed in.
+  if (pathname.startsWith("/dashboard") && !validSession && !adminToken) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  // 6. Bounce away from /login if already signed in.
   if (pathname === "/login") {
-    if (hasSession) {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
+    if (validSession === "user") return NextResponse.redirect(new URL("/", req.url));
+    if (validSession === "student") return NextResponse.redirect(new URL("/dashboard/student", req.url));
+    if (validSession === "parent") return NextResponse.redirect(new URL("/dashboard/parent", req.url));
     if (await hasValidAdminCookie(adminToken)) {
       return NextResponse.redirect(new URL("/dashboard/admin", req.url));
     }

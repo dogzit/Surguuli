@@ -37,13 +37,20 @@ export default async function AdminDashboard() {
         },
       }),
       prisma.signature.findMany({
+        // Bounded by design (teachers × approver_positions ≈ hundreds) but
+        // cap defensively so a pathological seed doesn't ship megabytes to
+        // the client. Full completion analysis below still works on this
+        // slice because we only use it to derive per-teacher totals.
+        take: 2000,
         orderBy: { createdAt: "desc" },
         include: {
           teacher: { select: { id: true, name: true, position: true } },
           approver: { select: { id: true, name: true, position: true } },
         },
       }),
-      prisma.classroom.findMany(),
+      prisma.classroom.findMany({
+        include: { _count: { select: { students: true } } },
+      }),
       prisma.announcement.findMany(),
       prisma.newsItem.findMany(),
       prisma.galleryImage.findMany(),
@@ -74,8 +81,9 @@ export default async function AdminDashboard() {
   const completionRate = teachers.length > 0 ? Math.round((completedTeachers / teachers.length) * 100) : 0;
   const avgSigs = teachers.length > 0 ? (signatures.length / teachers.length).toFixed(1) : "0";
 
-  // Classroom stats
-  const totalStudents = classrooms.reduce((sum, c) => sum + c.studentCount, 0);
+  // Classroom stats — use the live relation count, not the denormalized
+  // `studentCount` field, so a stale row can't misreport the totals.
+  const totalStudents = classrooms.reduce((sum, c) => sum + c._count.students, 0);
   const totalCapacity = classrooms.reduce((sum, c) => sum + c.capacity, 0);
   const occupancyRate = totalCapacity > 0 ? Math.round((totalStudents / totalCapacity) * 100) : 0;
 
@@ -83,7 +91,9 @@ export default async function AdminDashboard() {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const recentSigs = signatures.filter((s) => s.createdAt >= weekAgo);
 
-  const clientSignatures = signatures.map((s) => ({
+  // RecentActivity only renders the 8 latest entries; sending the full list
+  // to the client was pure waste.
+  const clientSignatures = signatures.slice(0, 20).map((s) => ({
     id: s.id,
     note: s.note,
     createdAt: s.createdAt.toISOString(),

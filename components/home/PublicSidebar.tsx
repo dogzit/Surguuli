@@ -8,9 +8,11 @@ import {
   Menu, X, Home, Plane, Users, Calendar, Clock, Star, Wallet,
   BookOpen, Shield, Newspaper, Phone, LogIn, LogOut, User, ChevronRight,
   PanelLeftClose, PanelLeftOpen, AlertTriangle, FileSignature, CheckCircle2,
+  Search, MessageSquareHeart,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
+import { NotificationBell } from "./NotificationBell";
 import { useSidebar } from "./SidebarContext";
 import { cn } from "@/lib/utils";
 import {
@@ -18,17 +20,19 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
+// Nav is intentionally trimmed to pages that have real content today.
+// /schedule, /time-calc, /teacher-eval, /budget still exist as routes
+// (in case anyone has an old bookmark) but they render a branded
+// coming-soon state instead of being surfaced in the primary nav.
 const NAV_LINKS = [
   { href: "/", label: "Нүүр", icon: Home },
   { href: "/tour", label: "Виртуал аялал", icon: Plane },
   { href: "/classes", label: "Анги бүлэг", icon: Users },
-  { href: "/schedule", label: "Хичээлийн хуваарь", icon: Calendar },
-  { href: "/time-calc", label: "Цагийн тооцоо", icon: Clock },
-  { href: "/teacher-eval", label: "Багшийн үнэлгээ", icon: Star },
-  { href: "/budget", label: "Төсөв", icon: Wallet },
   { href: "/quality", label: "Сургалтын чанар", icon: BookOpen },
   { href: "/protection", label: "Хүүхэд хамгаалал", icon: Shield },
   { href: "/news", label: "Мэдээ", icon: Newspaper },
+  { href: "/search", label: "Хайлт", icon: Search },
+  { href: "/feedback", label: "Санал хүсэлт", icon: MessageSquareHeart },
   { href: "/contact", label: "Холбоо", icon: Phone },
 ] as const;
 
@@ -40,7 +44,14 @@ interface SignatureData {
 
 export default function PublicSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [authState, setAuthState] = useState<{ loggedIn: boolean; role?: string; name?: string }>({ loggedIn: false });
+  // `homePath` comes from /api/auth/status so a student/parent session
+  // routes to the right dashboard when they tap their name.
+  const [authState, setAuthState] = useState<{
+    loggedIn: boolean;
+    role?: string;
+    name?: string;
+    homePath?: string;
+  }>({ loggedIn: false });
   const [logoutModal, setLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [signatureData, setSignatureData] = useState<SignatureData | null>(null);
@@ -59,9 +70,16 @@ export default function PublicSidebar() {
       .catch(() => setAuthState({ loggedIn: false }));
   }, []);
 
-  // Fetch signature progress for teachers
+  // Fetch signature progress for teachers ONLY — students and parents
+  // don't have a vacation-signature workflow, so skip the call entirely.
   useEffect(() => {
-    if (authState.loggedIn && authState.role !== "ADMIN" && authState.role !== "APPROVER") {
+    const isTeacher =
+      authState.loggedIn &&
+      authState.role !== "ADMIN" &&
+      authState.role !== "APPROVER" &&
+      authState.role !== "STUDENT" &&
+      authState.role !== "PARENT";
+    if (isTeacher) {
       fetch("/api/teacher/signatures/progress")
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
@@ -192,19 +210,18 @@ export default function PublicSidebar() {
         <div className="px-3 py-4">
           {authState.loggedIn ? (
             <div className="space-y-2">
-              <Link
-                href={
-                  authState.role === "ADMIN" || authState.role === "APPROVER"
-                    ? "/dashboard/admin"
-                    : "/dashboard/teacher"
-                }
-                onClick={onNavigate}
-                className="flex items-center gap-3 rounded-xl bg-primary/10 px-3 py-2.5 text-sm font-medium text-primary transition-all hover:bg-primary/15"
-              >
-                <User className="h-4 w-4" />
-                <span className="flex-1 truncate">{authState.name || "Хэрэглэгч"}</span>
-                <ChevronRight className="h-4 w-4 opacity-50" />
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={authState.homePath ?? "/dashboard"}
+                  onClick={onNavigate}
+                  className="flex flex-1 items-center gap-3 rounded-xl bg-primary/10 px-3 py-2.5 text-sm font-medium text-primary transition-all hover:bg-primary/15"
+                >
+                  <User className="h-4 w-4" />
+                  <span className="flex-1 truncate">{authState.name || "Хэрэглэгч"}</span>
+                  <ChevronRight className="h-4 w-4 opacity-50" />
+                </Link>
+                <NotificationBell />
+              </div>
               <button
                 type="button"
                 onClick={() => setLogoutModal(true)}

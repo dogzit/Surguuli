@@ -20,7 +20,11 @@ export default async function AccountantDashboard() {
       orderBy: [{ position: "asc" }, { name: "asc" }],
       select: { id: true, name: true, position: true },
     }),
+    // Only pull signatures from valid approver positions — the older
+    // query scanned every signature (including stale rows from removed
+    // approvers) just to throw most away in the aggregation below.
     prisma.signature.findMany({
+      where: { approver: { position: { in: [...APPROVER_POSITIONS] } } },
       orderBy: { createdAt: "desc" },
       select: {
         teacherId: true,

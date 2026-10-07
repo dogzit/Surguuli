@@ -361,25 +361,81 @@ export default function GalleryPanel({ images }: { images: GalleryImage[] }) {
 }
 
 // ── Upload Dialog ──────────────────────────────────────────────
+// Each queued file has an `uploading` phase (streaming to /api/upload)
+// and a `url` field once the server writes it to `public/uploads/…`.
+// Save-to-DB only fires for rows whose upload has resolved.
+type QueuedFile = {
+  file: File;
+  // Local blob URL used purely for preview while the server accepts
+  // the file. Revoked on remove.
+  previewLocal: string;
+  // Populated once /api/upload returns; before that the row shows a
+  // spinner. `null` means still uploading; a string means done.
+  url: string | null;
+  // Non-null when the upload itself failed (bad type, too large, etc.)
+  error: string | null;
+  title: string;
+  category: string;
+};
+
 function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const [files, setFiles] = useState<Array<{ file: File; preview: string; title: string; category: string }>>([]);
+  const [files, setFiles] = useState<QueuedFile[]>([]);
   const [category, setCategory] = useState("school");
   const [pending, start] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const uploadOne = useCallback(async (file: File) => {
+    const previewLocal = URL.createObjectURL(file);
+    // Snapshot the length before we push so we can update by index.
+    const insertIdx = await new Promise<number>((resolve) => {
+      setFiles((prev) => {
+        resolve(prev.length);
+        return [
+          ...prev,
+          {
+            file,
+            previewLocal,
+            url: null,
+            error: null,
+            title: file.name.replace(/\.[^.]+$/, ""),
+            category,
+          },
+        ];
+      });
+    });
+
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("category", "image");
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) {
+        setFiles((prev) =>
+          prev.map((f, i) => (i === insertIdx ? { ...f, error: json?.error ?? "Хадгалж чадсангүй." } : f)),
+        );
+        return;
+      }
+      setFiles((prev) =>
+        prev.map((f, i) => (i === insertIdx ? { ...f, url: json.url as string } : f)),
+      );
+    } catch (err) {
+      setFiles((prev) =>
+        prev.map((f, i) =>
+          i === insertIdx
+            ? { ...f, error: err instanceof Error ? err.message : "Сүлжээний алдаа." }
+            : f,
+        ),
+      );
+    }
+  }, [category]);
+
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles).filter((f) => f.type.startsWith("image/"));
     arr.forEach((f) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setFiles((prev) => [
-          ...prev,
-          { file: f, preview: e.target?.result as string, title: f.name.replace(/\.[^.]+$/, ""), category },
-        ]);
-      };
-      reader.readAsDataURL(f);
+      void uploadOne(f);
     });
-  }, [category]);
+  }, [uploadOne]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -387,28 +443,42 @@ function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
   }, [addFiles]);
 
   const removeFile = (idx: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== idx));
+    setFiles((prev) => {
+      const removed = prev[idx];
+      if (removed) URL.revokeObjectURL(removed.previewLocal);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   const updateFileTitle = (idx: number, title: string) => {
     setFiles((prev) => prev.map((f, i) => i === idx ? { ...f, title } : f));
   };
 
+  const ready = files.filter((f) => f.url && !f.error);
+  const uploading = files.filter((f) => !f.url && !f.error).length;
+
   const handleSubmit = async () => {
-    if (files.length === 0) {
-      toast.error("Зураг сонгоно уу");
+    if (ready.length === 0) {
+      toast.error("Хадгалагдсан зураг байхгүй.");
       return;
     }
 
     start(async () => {
       let successCount = 0;
-      for (const f of files) {
-        const res = await createGalleryImage({ title: f.title || "Зураг", url: f.preview, category: f.category });
+      for (const f of ready) {
+        // f.url is guaranteed non-null because of the filter above.
+        const res = await createGalleryImage({
+          title: f.title || "Зураг",
+          url: f.url!,
+          category: f.category,
+        });
         if (res?.ok) successCount++;
       }
 
       if (successCount > 0) {
         toast.success(`${successCount} зураг нэмэгдлээ`);
+        // Free blob URLs before wiping.
+        files.forEach((f) => URL.revokeObjectURL(f.previewLocal));
         setFiles([]);
         onOpenChange(false);
       } else {
@@ -418,6 +488,7 @@ function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
   };
 
   const close = () => {
+    files.forEach((f) => URL.revokeObjectURL(f.previewLocal));
     setFiles([]);
     onOpenChange(false);
   };
@@ -492,17 +563,40 @@ function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        className="group relative flex items-center gap-3 rounded-xl border border-border/50 bg-card p-3 shadow-sm"
+                        className={cn(
+                          "group relative flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm",
+                          f.error ? "border-destructive/40" : "border-border/50",
+                        )}
                       >
-                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
-                          <img src={f.preview} alt="" className="h-full w-full object-cover" />
+                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={f.previewLocal} alt="" className="h-full w-full object-cover" />
+                          {!f.url && !f.error && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                              <Loader2 className="h-4 w-4 animate-spin text-white" />
+                            </div>
+                          )}
+                          {f.error && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-destructive/80">
+                              <X className="h-4 w-4 text-white" />
+                            </div>
+                          )}
                         </div>
-                        <input
-                          value={f.title}
-                          onChange={(e) => updateFileTitle(idx, e.target.value)}
-                          className="min-w-0 flex-1 truncate rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs font-medium"
-                          placeholder="Нэр"
-                        />
+                        <div className="min-w-0 flex-1">
+                          <input
+                            value={f.title}
+                            onChange={(e) => updateFileTitle(idx, e.target.value)}
+                            disabled={!f.url && !f.error}
+                            className="w-full truncate rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs font-medium disabled:opacity-50"
+                            placeholder="Нэр"
+                          />
+                          {f.error && (
+                            <p className="mt-1 truncate text-[10px] text-destructive">{f.error}</p>
+                          )}
+                          {!f.url && !f.error && (
+                            <p className="mt-1 text-[10px] text-muted-foreground">Хадгалж байна…</p>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => removeFile(idx)}
@@ -535,7 +629,7 @@ function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
           <Button variant="outline" onClick={close} disabled={pending} className="rounded-xl">Болих</Button>
           <Button
             onClick={handleSubmit}
-            disabled={pending || files.length === 0}
+            disabled={pending || uploading > 0 || ready.length === 0}
             className="rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-violet-500 text-white shadow-lg shadow-pink-500/25"
           >
             {pending ? (
@@ -543,7 +637,11 @@ function UploadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
             ) : (
               <Check className="mr-2 h-4 w-4" />
             )}
-            {files.length > 1 ? `${files.length} зураг нэмэх` : "Нэмэх"}
+            {uploading > 0
+              ? `${uploading} хадгалж байна…`
+              : ready.length > 1
+                ? `${ready.length} зураг нэмэх`
+                : "Нэмэх"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -574,12 +672,30 @@ function EditDialog({
     setNewPreview(null);
   }
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const [replacing, setReplacing] = useState(false);
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (f && f.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (ev) => setNewPreview(ev.target?.result as string);
-      reader.readAsDataURL(f);
+    if (!f || !f.type.startsWith("image/")) return;
+    setReplacing(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      fd.append("category", "image");
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json?.error ?? "Хадгалж чадсангүй.");
+        return;
+      }
+      // newPreview now stores the real URL, not a base64 blob. On save
+      // we just pass it through to updateGalleryImage.
+      setNewPreview(json.url as string);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Сүлжээний алдаа.");
+    } finally {
+      setReplacing(false);
+      if (e.target) e.target.value = "";
     }
   }, []);
 
@@ -643,10 +759,15 @@ function EditDialog({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-full rounded-xl border-2 border-dashed border-primary/20 bg-primary/5 py-3 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/10"
+            disabled={replacing}
+            className="w-full rounded-xl border-2 border-dashed border-primary/20 bg-primary/5 py-3 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/10 disabled:opacity-60"
           >
-            <CloudUpload className="mr-2 inline h-4 w-4" />
-            Зураг солих
+            {replacing ? (
+              <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+            ) : (
+              <CloudUpload className="mr-2 inline h-4 w-4" />
+            )}
+            {replacing ? "Хадгалж байна…" : "Зураг солих"}
           </button>
         </div>
 

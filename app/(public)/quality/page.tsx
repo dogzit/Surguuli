@@ -1,26 +1,29 @@
 import type { Metadata } from "next";
 import { Quality } from "@/components/home/Quality";
-import { loadSchoolInfo } from "@/lib/site-data";
+import { loadSchoolInfoBundle, loadSchoolName } from "@/lib/school-info";
 
-export const metadata: Metadata = {
-  title: "Сургалтын чанар · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-  description:
-    "Улсын болон олон улсын үнэлгээний тоо баримт, PISA, улсын шалгалтын үр дүн.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await loadSchoolName();
+  return {
+    title: name ? `Сургалтын чанар · ${name}` : "Сургалтын чанар",
+    description:
+      "Улсын болон олон улсын үнэлгээний тоо баримт, PISA, улсын шалгалтын үр дүн.",
+  };
+}
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function QualityPage() {
-  const info = await loadSchoolInfo();
+  const info = await loadSchoolInfoBundle();
 
   return (
     <Quality
-      nationalExam={info.quality_national_exam ?? "3.72"}
-      universityRate={info.quality_university_rate ?? "94"}
-      olympiadMedals={info.quality_olympiad_medals ?? "27"}
-      pisaScore={info.quality_pisa_score ?? "512"}
-      nationalExamDesc={info.quality_national_exam_desc ?? ""}
-      teacherDesc={info.quality_teacher_desc ?? ""}
+      nationalExam={info.qualityNationalExam ?? ""}
+      universityRate={info.qualityUniversityRate ?? ""}
+      olympiadMedals={info.olympiadMedals ?? ""}
+      pisaScore={info.qualityPisaScore ?? ""}
+      nationalExamDesc={info.qualityNationalExamDesc ?? ""}
+      teacherDesc={info.qualityTeacherDesc ?? ""}
     />
   );
 }

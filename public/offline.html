@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Офлайн</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      background: #f6f7fb; color: #111827; padding: 24px;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #f1f5f9; }
+      .card { background: #1e293b; border-color: #334155; }
+    }
+    .card {
+      max-width: 420px; background: #fff; border: 1px solid #e5e7eb;
+      border-radius: 20px; padding: 32px; text-align: center;
+    }
+    h1 { margin: 0 0 8px 0; font-size: 20px; }
+    p { margin: 0; font-size: 14px; line-height: 1.6; opacity: 0.8; }
+    .dot {
+      display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      background: #f59e0b; margin-right: 8px; vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1><span class="dot"></span>Интернэт холбогдоогүй</h1>
+    <p>Сүлжээ буцаж ирмэгц энэ хуудас автоматаар шинэчилнэ. Одоохондоо өмнө үзсэн хуудсуудаа офлайнаар үзэх боломжтой.</p>
+  </div>
+  <script>
+    window.addEventListener("online", () => window.location.reload());
+  </script>
+</body>
+</html>

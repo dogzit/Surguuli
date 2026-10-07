@@ -6,7 +6,55 @@ import { prisma } from "@/lib/prisma";
 import { hashPin } from "@/lib/session";
 import { ensureAdmin } from "@/lib/admin";
 import { logAudit } from "@/lib/audit";
+import { sanitizeRichHtml } from "@/lib/sanitize";
+import { notifyEveryone } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
+
+/**
+ * Turn a title into a URL-friendly slug. Cyrillic-aware transliteration
+ * so a title like "Хичээлийн шинэ жил" becomes "hicheeliin-shine-jil"
+ * rather than an empty string.
+ */
+function slugify(input: string): string {
+  const map: Record<string, string> = {
+    а: "a", б: "b", в: "v", г: "g", д: "d", е: "ye", ё: "yo",
+    ж: "j", з: "z", и: "i", й: "i", к: "k", л: "l", м: "m",
+    н: "n", о: "o", ө: "o", п: "p", р: "r", с: "s", т: "t",
+    у: "u", ү: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh",
+    щ: "sh", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+  };
+  const lower = input.toLowerCase();
+  let out = "";
+  for (const ch of lower) {
+    if (map[ch] !== undefined) out += map[ch];
+    else if (/[a-z0-9]/.test(ch)) out += ch;
+    else out += "-";
+  }
+  return out
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || "news";
+}
+
+/**
+ * Return a slug that is guaranteed unique in the NewsItem table.
+ * If the desired slug already exists, appends `-2`, `-3`, … .
+ */
+async function ensureUniqueNewsSlug(desired: string, excludeId?: string): Promise<string> {
+  const base = slugify(desired);
+  let candidate = base;
+  let counter = 2;
+  // Cap the retry loop — collisions are cheap but pathological titles
+  // shouldn't be able to spin forever.
+  while (counter < 20) {
+    const existing = await prisma.newsItem.findUnique({ where: { slug: candidate } });
+    if (!existing || existing.id === excludeId) return candidate;
+    candidate = `${base}-${counter}`;
+    counter++;
+  }
+  // Very unlikely fallback — random suffix.
+  return `${base}-${crypto.randomBytes(3).toString("hex")}`;
+}
 
 function randomPin4(): string {
   return String(crypto.randomInt(0, 10000)).padStart(4, "0");
@@ -205,24 +253,56 @@ export async function updateUser(
   return { ok: true, message: "Хадгалагдлаа." };
 }
 
-export async function deleteUser(id: string): Promise<Result> {
+export async function deleteUser(
+  id: string,
+  options?: { confirmCascade?: boolean },
+): Promise<Result<{ cascadedSignatures?: number }>> {
   const gate = await ensureAdmin();
   if (!gate.ok) return gate;
   const target = await prisma.user.findUnique({
     where: { id },
-    select: { name: true, role: true },
+    select: {
+      name: true,
+      role: true,
+      _count: { select: { managedSignatures: true, signatures: true } },
+    },
   });
   if (!target) return { ok: false, error: "Хэрэглэгч олдсонгүй." };
   if (target.role === "ADMIN") {
     return { ok: false, error: "Админ хэрэглэгчийг устгах боломжгүй." };
   }
+
+  // Deleting an APPROVER cascades their signatures — teachers who relied on
+  // those signatures for completion status silently drop back to incomplete.
+  // Require an explicit second confirmation with the affected count.
+  const cascaded = target._count.managedSignatures;
+  if (target.role === "APPROVER" && cascaded > 0 && !options?.confirmCascade) {
+    return {
+      ok: false,
+      error: `Энэ баталгаажуулагч ${cascaded} багшид гарын үсэг зурсан байна. Устгавал тэдгээр гарын үсэг мөн устана. Баталгаажуулж дахин дарна уу.`,
+    };
+  }
+
   const res = await guardNotFound("Хэрэглэгч олдсонгүй.", () =>
     prisma.user.delete({ where: { id } }),
   );
   if (!res.ok) return res;
-  await logAudit({ action: "user.delete", targetType: "user", targetId: id, metadata: { name: target.name, role: target.role } });
+  await logAudit({
+    action: "user.delete",
+    targetType: "user",
+    targetId: id,
+    metadata: { name: target.name, role: target.role, cascadedSignatures: cascaded },
+  });
   revalidateUsers();
-  return { ok: true, message: "Хэрэглэгч устгагдлаа." };
+  if (target.role === "APPROVER") revalidateSignatures();
+  return {
+    ok: true,
+    data: { cascadedSignatures: cascaded },
+    message:
+      cascaded > 0
+        ? `Хэрэглэгч устгагдаж, ${cascaded} гарын үсэг цуцлагдлаа.`
+        : "Хэрэглэгч устгагдлаа.",
+  };
 }
 
 export async function resetUserPin(
@@ -402,8 +482,10 @@ export async function createClassroom(input: {
 
   if (!section) return { ok: false, error: "Ангийн тэмдэгт шаардлагатай." };
   if (!label) return { ok: false, error: "Ангийн нэр шаардлагатай." };
-  if (!headTeacher) return { ok: false, error: "Ангийн багш багшийн нэр шаардлагатай." };
-  if (grade < 1 || grade > 12) return { ok: false, error: "Анги 1-12 байх ёстой." };
+  if (!headTeacher) return { ok: false, error: "Ангийн багшийн нэр шаардлагатай." };
+  if (!Number.isInteger(grade) || grade < 1 || grade > 12) {
+    return { ok: false, error: "Анги 1-12 байх ёстой." };
+  }
 
   const exists = await prisma.classroom.findUnique({ where: { grade_section: { grade, section } } });
   if (exists) return { ok: false, error: `${grade}${section} анги аль хэдийн бүртгэгдсэн.` };
@@ -503,21 +585,26 @@ export async function createStudent(input: {
   const gpa = Math.max(0, Math.min(4, Number((input.gpa ?? 3.5).toFixed(2))));
 
   try {
-    const created = await prisma.student.create({
-      data: {
-        code,
-        firstName,
-        lastName,
-        gender,
-        attendance,
-        gpa,
-        classroomId: classroom.id,
-      },
-      select: { id: true },
-    });
-    await prisma.classroom.update({
-      where: { id: classroom.id },
-      data: { studentCount: { increment: 1 } },
+    // Wrap create + count increment together so a mid-write failure cannot
+    // leave `Classroom.studentCount` drifting out of sync with actual rows.
+    const created = await prisma.$transaction(async (tx) => {
+      const row = await tx.student.create({
+        data: {
+          code,
+          firstName,
+          lastName,
+          gender,
+          attendance,
+          gpa,
+          classroomId: classroom.id,
+        },
+        select: { id: true },
+      });
+      await tx.classroom.update({
+        where: { id: classroom.id },
+        data: { studentCount: { increment: 1 } },
+      });
+      return row;
     });
     await logAudit({ action: "student.create", targetType: "student", targetId: created.id, metadata: { classroomId: classroom.id, code } });
     revalidateClassrooms();
@@ -695,34 +782,44 @@ export async function importStudents(
     return { ok: false, error: "Импорт хийх сурагч олдсонгүй." };
   }
 
-  let inserted = 0;
-  let updated = 0;
+  // Resolve which incoming rows already exist BEFORE the transaction so
+  // we don't do N round-trips inside the txn budget. At ~30ms per query
+  // over Neon, importing an entire grade (~500 rows) used to blow past
+  // the 30s timeout and roll everything back.
+  const codes = cleaned.map((r) => r.code);
+  const existingRows = await prisma.student.findMany({
+    where: { code: { in: codes } },
+    select: { code: true },
+  });
+  const existingCodes = new Set(existingRows.map((r) => r.code));
+
+  const toCreate = cleaned.filter((r) => !existingCodes.has(r.code));
+  const toUpdate = cleaned.filter((r) => existingCodes.has(r.code));
 
   await prisma.$transaction(
     async (tx) => {
       if (options?.replace) {
         await tx.student.deleteMany({ where: { classroomId: classroom.id } });
       }
-      for (const row of cleaned) {
-        const existing = await tx.student.findUnique({ where: { code: row.code } });
-        if (existing) {
-          await tx.student.update({
-            where: { code: row.code },
-            data: {
-              firstName: row.firstName,
-              lastName: row.lastName,
-              gender: row.gender,
-              attendance: row.attendance,
-              gpa: row.gpa,
-              chosen: row.chosen,
-              classroomId: row.classroomId,
-            },
-          });
-          updated++;
-        } else {
-          await tx.student.create({ data: row });
-          inserted++;
-        }
+      if (toCreate.length > 0) {
+        // createMany silently skips duplicates that may have been inserted
+        // between our pre-check and the txn (e.g. concurrent admin action).
+        await tx.student.createMany({ data: toCreate, skipDuplicates: true });
+      }
+      // Updates still have to be per-row since fields differ.
+      for (const row of toUpdate) {
+        await tx.student.update({
+          where: { code: row.code },
+          data: {
+            firstName: row.firstName,
+            lastName: row.lastName,
+            gender: row.gender,
+            attendance: row.attendance,
+            gpa: row.gpa,
+            chosen: row.chosen,
+            classroomId: row.classroomId,
+          },
+        });
       }
       const count = await tx.student.count({ where: { classroomId: classroom.id } });
       await tx.classroom.update({
@@ -732,6 +829,9 @@ export async function importStudents(
     },
     { timeout: 30000, maxWait: 10000 },
   );
+
+  const inserted = toCreate.length;
+  const updated = toUpdate.length;
 
   await logAudit({ action: "student.import", targetType: "classroom", targetId: classroom.id, metadata: { inserted, updated, replace: !!options?.replace } });
   revalidateClassrooms();
@@ -770,7 +870,9 @@ export async function createSectionFromPool(input: {
   const capacity = input.capacity ?? 32;
   const pickCount = Math.max(1, Math.min(60, Math.floor(input.pickCount)));
 
-  if (grade < 1 || grade > 12) return { ok: false, error: "Анги 1-12 байх ёстой." };
+  if (!Number.isInteger(grade) || grade < 1 || grade > 12) {
+    return { ok: false, error: "Анги 1-12 байх ёстой." };
+  }
   if (!section) return { ok: false, error: "Бүлгийн тэмдэгт шаардлагатай." };
   if (!label) return { ok: false, error: "Ангийн нэр шаардлагатай." };
   if (!headTeacher) return { ok: false, error: "Ангийн багш шаардлагатай." };
@@ -1007,34 +1109,124 @@ export async function deleteAnnouncement(id: string): Promise<Result> {
 
 // ── News CRUD ─────────────────────────────────────────────────
 
-export async function createNewsItem(input: { tag: string; title: string; excerpt: string; date?: string }): Promise<Result<{ id: string }>> {
+export async function createNewsItem(input: {
+  tag: string;
+  title: string;
+  excerpt: string;
+  body?: string;
+  coverImage?: string | null;
+  status?: "draft" | "published";
+  date?: string;
+}): Promise<Result<{ id: string; slug: string }>> {
   const gate = await ensureAdmin();
   if (!gate.ok) return gate;
   const tag = input.tag.trim();
   const title = input.title.trim();
   const excerpt = input.excerpt.trim();
   if (!tag || !title) return { ok: false, error: "Таг, гарчиг шаардлагатай." };
+
+  const slug = await ensureUniqueNewsSlug(title);
+  const status = input.status === "draft" ? "draft" : "published";
+  const body = input.body ? sanitizeRichHtml(input.body) : null;
+
   const created = await prisma.newsItem.create({
-    data: { tag, title, excerpt, date: input.date ? new Date(input.date) : new Date(), order: 0 },
-    select: { id: true },
+    data: {
+      tag,
+      title,
+      excerpt,
+      body,
+      coverImage: input.coverImage?.trim() || null,
+      slug,
+      status,
+      publishedAt: status === "published" ? new Date() : null,
+      date: input.date ? new Date(input.date) : new Date(),
+      order: 0,
+    },
+    select: { id: true, slug: true },
   });
+  await logAudit({ action: "news.create", targetType: "news", targetId: created.id, metadata: { slug, status } });
+  // Only fan out notifications when the article goes public. Drafts stay
+  // silent so admins can iterate without paging every parent.
+  if (status === "published") {
+    void notifyEveryone({
+      category: "news",
+      title: `Шинэ мэдээ: ${title}`,
+      body: excerpt ? excerpt.slice(0, 200) : null,
+      href: created.slug ? `/news/${created.slug}` : "/news",
+    });
+  }
   revalidateContent("news");
-  return { ok: true, data: { id: created.id }, message: "Мэдээ үүсгэлээ." };
+  if (created.slug) revalidatePath(`/news/${created.slug}`);
+  return { ok: true, data: { id: created.id, slug: created.slug ?? "" }, message: "Мэдээ үүсгэлээ." };
 }
 
-export async function updateNewsItem(id: string, input: { tag?: string; title?: string; excerpt?: string }): Promise<Result> {
+export async function updateNewsItem(id: string, input: {
+  tag?: string;
+  title?: string;
+  excerpt?: string;
+  body?: string | null;
+  coverImage?: string | null;
+  status?: "draft" | "published";
+}): Promise<Result> {
   const gate = await ensureAdmin();
   if (!gate.ok) return gate;
   if (!id) return { ok: false, error: "ID шаардлагатай." };
+
+  const existing = await prisma.newsItem.findUnique({ where: { id } });
+  if (!existing) return { ok: false, error: "Мэдээ олдсонгүй." };
+
   const data: Record<string, unknown> = {};
   if (input.tag !== undefined) data.tag = input.tag.trim();
-  if (input.title !== undefined) data.title = input.title.trim();
+  if (input.title !== undefined) {
+    const newTitle = input.title.trim();
+    data.title = newTitle;
+    // Regenerate slug if the title actually changed AND either the
+    // existing slug is empty (backfill) or was derived from the old
+    // title. Manual slugs stay untouched.
+    if (!existing.slug || existing.slug === slugify(existing.title)) {
+      data.slug = await ensureUniqueNewsSlug(newTitle, id);
+    }
+  }
   if (input.excerpt !== undefined) data.excerpt = input.excerpt.trim();
+  if (input.body !== undefined) {
+    data.body = input.body ? sanitizeRichHtml(input.body) : null;
+  }
+  if (input.coverImage !== undefined) {
+    data.coverImage = input.coverImage?.trim() || null;
+  }
+  if (input.status !== undefined) {
+    const newStatus = input.status === "draft" ? "draft" : "published";
+    data.status = newStatus;
+    // First publish stamps publishedAt; unpublishing preserves it.
+    if (newStatus === "published" && !existing.publishedAt) {
+      data.publishedAt = new Date();
+    }
+  }
+
   const res = await guardNotFound("Мэдээ олдсонгүй.", () =>
     prisma.newsItem.update({ where: { id }, data }),
   );
   if (!res.ok) return res;
+  await logAudit({ action: "news.update", targetType: "news", targetId: id, metadata: Object.keys(data) });
+  // Draft → published transition = the article is going live for the
+  // first time. Broadcast a notification exactly once (guarded by the
+  // absent-publishedAt check on the pre-update row).
+  const wentLive =
+    input.status === "published" && existing.status !== "published";
+  if (wentLive) {
+    const newSlug = (data.slug as string | undefined) ?? existing.slug ?? null;
+    const title = (data.title as string | undefined) ?? existing.title;
+    const excerpt = (data.excerpt as string | undefined) ?? existing.excerpt;
+    void notifyEveryone({
+      category: "news",
+      title: `Шинэ мэдээ: ${title}`,
+      body: excerpt ? excerpt.slice(0, 200) : null,
+      href: newSlug ? `/news/${newSlug}` : "/news",
+    });
+  }
   revalidateContent("news");
+  if (existing.slug) revalidatePath(`/news/${existing.slug}`);
+  if (data.slug) revalidatePath(`/news/${data.slug as string}`);
   return { ok: true, message: "Хадгалагдлаа." };
 }
 
@@ -1051,7 +1243,7 @@ export async function deleteNewsItem(id: string): Promise<Result> {
 
 // ── Tour Room CRUD ────────────────────────────────────────────
 
-export async function createTourRoom(input: { slug: string; label: string; subtitle: string; description: string; icon: string; panoramaUrl?: string | null }): Promise<Result<{ id: string }>> {
+export async function createTourRoom(input: { slug: string; label: string; subtitle: string; description: string; icon: string; panoramaUrl?: string | null; videoUrl?: string | null; photoUrl?: string | null }): Promise<Result<{ id: string }>> {
   const gate = await ensureAdmin();
   if (!gate.ok) return gate;
   const slug = input.slug.trim();
@@ -1061,14 +1253,24 @@ export async function createTourRoom(input: { slug: string; label: string; subti
   if (exists) return { ok: false, error: "Энэ slug аль хэдийн бүртгэгдсэн." };
   const maxOrder = await prisma.tourRoom.aggregate({ _max: { order: true } });
   const created = await prisma.tourRoom.create({
-    data: { slug, label, subtitle: input.subtitle.trim(), description: input.description.trim(), icon: input.icon.trim(), panoramaUrl: input.panoramaUrl?.trim() || null, order: (maxOrder._max.order ?? -1) + 1 },
+    data: {
+      slug,
+      label,
+      subtitle: input.subtitle.trim(),
+      description: input.description.trim(),
+      icon: input.icon.trim(),
+      panoramaUrl: input.panoramaUrl?.trim() || null,
+      videoUrl: input.videoUrl?.trim() || null,
+      photoUrl: input.photoUrl?.trim() || null,
+      order: (maxOrder._max.order ?? -1) + 1,
+    },
     select: { id: true },
   });
   revalidateContent("tour");
   return { ok: true, data: { id: created.id }, message: "Зогсолол үүсгэлээ." };
 }
 
-export async function updateTourRoom(id: string, input: { label?: string; subtitle?: string; description?: string; icon?: string; panoramaUrl?: string | null }): Promise<Result> {
+export async function updateTourRoom(id: string, input: { label?: string; subtitle?: string; description?: string; icon?: string; panoramaUrl?: string | null; videoUrl?: string | null; photoUrl?: string | null }): Promise<Result> {
   const gate = await ensureAdmin();
   if (!gate.ok) return gate;
   if (!id) return { ok: false, error: "ID шаардлагатай." };
@@ -1078,6 +1280,8 @@ export async function updateTourRoom(id: string, input: { label?: string; subtit
   if (input.description !== undefined) data.description = input.description.trim();
   if (input.icon !== undefined) data.icon = input.icon.trim();
   if (input.panoramaUrl !== undefined) data.panoramaUrl = input.panoramaUrl?.trim() || null;
+  if (input.videoUrl !== undefined) data.videoUrl = input.videoUrl?.trim() || null;
+  if (input.photoUrl !== undefined) data.photoUrl = input.photoUrl?.trim() || null;
   const res = await guardNotFound("Зогсолол олдсонгүй.", () =>
     prisma.tourRoom.update({ where: { id }, data }),
   );

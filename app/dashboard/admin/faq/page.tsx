@@ -3,6 +3,7 @@ import { canAccessAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import AdminGate from "../AdminGate";
 import { SimpleListPanel } from "../ContentPanel";
+import { PageHero } from "../PageHero";
 
 export default async function FaqPage() {
   const access = await canAccessAdmin();
@@ -10,17 +11,24 @@ export default async function FaqPage() {
 
   const faqs = await prisma.faq.findMany({ orderBy: { order: "asc" } });
 
+  // Rough length hint: shows the admin at a glance whether answers are
+  // short one-liners or full paragraphs, without needing to open each row.
+  const avgAnswerLen = faqs.length
+    ? Math.round(faqs.reduce((sum, f) => sum + f.answer.length, 0) / faqs.length)
+    : 0;
+
   return (
     <>
-      <div className="mb-6 flex items-center gap-3">
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500">
-          <HelpCircle className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Асуулт</h1>
-          <p className="text-xs text-muted-foreground">Түгээмэл асуултууд</p>
-        </div>
-      </div>
+      <PageHero
+        icon={HelpCircle}
+        title="Асуулт"
+        subtitle="Эцэг эх, сурагчдын түгээмэл асуулт, хариулт"
+        accent="indigo"
+        stats={[
+          { label: "Асуулт", value: faqs.length, tone: "accent" },
+          ...(faqs.length ? [{ label: "Дундаж уртат", value: `${avgAnswerLen} тэмдэгт` } as const] : []),
+        ]}
+      />
       <SimpleListPanel items={faqs.map((f) => ({ id: f.id, question: f.question, answer: f.answer, order: f.order }))} type="faq" />
     </>
   );

@@ -95,6 +95,9 @@ export default function UsersPanel({ users }: { users: AdminUser[] }) {
   const [pinTarget, setPinTarget] = useState<AdminUser | null>(null);
   const [pinValue, setPinValue] = useState("0000");
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+  // Set after the first delete attempt on an APPROVER with signatures —
+  // shows the cascade warning and requires a second click to confirm.
+  const [cascadeWarning, setCascadeWarning] = useState<string | null>(null);
 
   const stats = useMemo(() => ({
     total: users.length,
@@ -140,10 +143,20 @@ export default function UsersPanel({ users }: { users: AdminUser[] }) {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
+    const confirmCascade = cascadeWarning !== null;
     start(async () => {
-      const res = await deleteUser(deleteTarget.id);
-      if (res.ok) { toast.success(res.message ?? "Устгалаа"); setDeleteTarget(null); }
-      else toast.error(res.error);
+      const res = await deleteUser(deleteTarget.id, { confirmCascade });
+      if (res.ok) {
+        toast.success(res.message ?? "Устгалаа");
+        setDeleteTarget(null);
+        setCascadeWarning(null);
+      } else if (!confirmCascade && /гарын үсэг/.test(res.error)) {
+        // First attempt hit the cascade guard — surface the warning and
+        // let the admin click Delete again to actually proceed.
+        setCascadeWarning(res.error);
+      } else {
+        toast.error(res.error);
+      }
     });
   };
 
@@ -286,7 +299,15 @@ export default function UsersPanel({ users }: { users: AdminUser[] }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && !pending && setDeleteTarget(null)}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => {
+          if (!v && !pending) {
+            setDeleteTarget(null);
+            setCascadeWarning(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300">
@@ -298,9 +319,25 @@ export default function UsersPanel({ users }: { users: AdminUser[] }) {
               түүний бүх гарын үсэг устаж буцаагдашгүй.
             </DialogDescription>
           </DialogHeader>
+          {cascadeWarning && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              {cascadeWarning}
+            </div>
+          )}
           <DialogFooter className="sm:justify-center">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={pending}>Болих</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={pending}>Устгах</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteTarget(null);
+                setCascadeWarning(null);
+              }}
+              disabled={pending}
+            >
+              Болих
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={pending}>
+              {cascadeWarning ? "Дахин устгах" : "Устгах"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

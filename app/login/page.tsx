@@ -1,19 +1,17 @@
-import { getCurrentUser, roleHomePath } from "@/lib/session";
 import { redirect } from "next/navigation";
+import { actorHomePath, getCurrentActor } from "@/lib/session";
 import LoginHeader from "./LoginHeader";
-import UserPicker from "./UserPicker";
+import RolePicker from "./RolePicker";
 import ThemeToggle from "@/components/ThemeToggle";
 import Footer from "@/components/Footer";
 
 export default async function LoginPage() {
-  const me = await getCurrentUser();
-  if (me) {
-    redirect(roleHomePath(me.role, me.position));
+  // Anyone already logged in — staff, student, or parent — gets bounced
+  // straight to their own dashboard.
+  const actor = await getCurrentActor();
+  if (actor) {
+    redirect(actorHomePath(actor));
   }
-
-  // NOTE: Intentionally NO bulk user query here. The staff roster is no
-  // longer exposed to unauthenticated visitors — the client searches for a
-  // single user on demand via the rate-limited `searchUsers` server action.
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -25,7 +23,7 @@ export default async function LoginPage() {
           <LoginHeader />
 
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm ring-1 ring-border">
-            <UserPicker />
+            <RolePicker />
           </div>
         </div>
       </main>

@@ -171,6 +171,7 @@ export default async function AuditPage({
     }),
     prisma.classroom.findMany({
       orderBy: [{ grade: "asc" }, { section: "asc" }],
+      include: { _count: { select: { students: true } } },
     }),
     prisma.student.count(),
     prisma.announcement.count(),
@@ -428,7 +429,8 @@ export default async function AuditPage({
         ) : (
           <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {classrooms.map((c) => {
-              const filled = c.capacity > 0 ? Math.min(100, Math.round((c.studentCount / c.capacity) * 100)) : 0;
+              const count = c._count.students;
+              const filled = c.capacity > 0 ? Math.min(100, Math.round((count / c.capacity) * 100)) : 0;
               return (
                 <div key={c.id} className="rounded-xl border border-border/50 bg-card p-3">
                   <div className="flex items-center justify-between">
@@ -439,7 +441,7 @@ export default async function AuditPage({
                   </div>
                   <div className="mt-0.5 text-xs text-muted-foreground truncate">{c.headTeacher}</div>
                   <div className="mt-2 flex items-center justify-between text-xs">
-                    <span className="tabular-nums text-muted-foreground">{c.studentCount}/{c.capacity}</span>
+                    <span className="tabular-nums text-muted-foreground">{count}/{c.capacity}</span>
                     <span className="tabular-nums font-medium">{filled}%</span>
                   </div>
                   <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">

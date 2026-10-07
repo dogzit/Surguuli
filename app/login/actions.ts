@@ -13,12 +13,24 @@ import {
 } from "@/lib/rate-limit";
 import {
   SESSION_COOKIE,
+  SESSION_TYPE_COOKIE,
   hashPin,
   isLegacyPin,
   roleHomePath,
   signSession,
   verifyPin,
 } from "@/lib/session";
+
+// Shared cookie config so staff/student/parent flows all set matching
+// SameSite/Secure/lifetime. httpOnly is on for both — nothing client-side
+// needs to read these.
+const SESSION_COOKIE_OPTS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  maxAge: 60 * 60 * 24 * 30,
+  path: "/",
+};
 
 /**
  * Compare two strings in constant time. Returns false whenever the buffers
@@ -95,13 +107,8 @@ export async function loginAs(formData: FormData) {
     resetRateLimit(`login:id:${identifier}`);
     await setAdminSession();
     const store = await cookies();
-    store.set(SESSION_COOKIE, signSession(user.id), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30,
-      path: "/",
-    });
+    store.set(SESSION_COOKIE, signSession(user.id, "user"), SESSION_COOKIE_OPTS);
+    store.set(SESSION_TYPE_COOKIE, "user", SESSION_COOKIE_OPTS);
     await logAudit({
       action: "auth.super_admin_success",
       targetType: "user",
@@ -138,13 +145,8 @@ export async function loginAs(formData: FormData) {
   }
 
   const store = await cookies();
-  store.set(SESSION_COOKIE, signSession(user.id), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-    path: "/",
-  });
+  store.set(SESSION_COOKIE, signSession(user.id, "user"), SESSION_COOKIE_OPTS);
+  store.set(SESSION_TYPE_COOKIE, "user", SESSION_COOKIE_OPTS);
 
   redirect(roleHomePath(user.role, user.position));
 }
@@ -196,6 +198,7 @@ export async function getStaffRoster(): Promise<
 export async function logout() {
   const store = await cookies();
   store.delete(SESSION_COOKIE);
+  store.delete(SESSION_TYPE_COOKIE);
   store.delete(ADMIN_COOKIE);
   redirect("/login");
 }

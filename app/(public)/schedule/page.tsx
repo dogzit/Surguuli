@@ -1,26 +1,24 @@
 import type { Metadata } from "next";
-import { SectionShell } from "@/components/home/SectionShell";
+import { ComingSoonSection } from "@/components/home/ComingSoonSection";
+import { loadSchoolName } from "@/lib/school-info";
 
-export const metadata: Metadata = {
-  title: "Хичээлийн хуваарь · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-  description: "Анги бүрийн хичээлийн хуваарь.",
-  robots: { index: false, follow: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await loadSchoolName();
+  return {
+    title: name ? `Хичээлийн хуваарь · ${name}` : "Хичээлийн хуваарь",
+    description: "Анги бүрийн хичээлийн хуваарь.",
+    robots: { index: false, follow: true },
+  };
+}
 
 export default function SchedulePage() {
   return (
-    <SectionShell
-      id="schedule"
-      tone="light"
+    <ComingSoonSection
       eyebrow="Хичээлийн хуваарь"
-      title="Хичээлийн хуваарь"
-      description="Анги бүрийн хичээлийн хуваарь энд нэмэгдэх болно."
-    >
-      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
-        <p className="text-sm text-muted-foreground">
-          Хуваарь одоогоор бэлдэгдэж байна.
-        </p>
-      </div>
-    </SectionShell>
+      title="Анги бүрийн долоо хоногийн хуваарь"
+      body="Ангиудын долоо хоногийн хичээлийн хуваарь болон онлайн танхимын мэдээллийг энд нэгтгэн байршуулна."
+      ctaLabel="Анги бүлэг үзэх"
+      ctaHref="/classes"
+    />
   );
 }

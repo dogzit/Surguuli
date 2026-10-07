@@ -18,7 +18,9 @@ import { cn } from "@/lib/utils";
 import { SectionShell } from "./SectionShell";
 import type { TourRoomRow } from "@/lib/site-data";
 
-const PanoramaViewer = dynamic(() => import("./PanoramaViewer"), {
+// TourMediaViewer picks 360-panorama / video / photo based on which fields
+// the room has populated — no more panorama-or-nothing.
+const TourMediaViewer = dynamic(() => import("./TourMediaViewer"), {
   ssr: false,
   loading: () => (
     <div className="aspect-[16/9] w-full animate-pulse rounded-xl bg-muted" />
@@ -34,6 +36,15 @@ const ICON_MAP: Record<string, typeof DoorOpen> = {
   Trees,
   MapPin,
 };
+
+// Tell the sidebar what kind of media each room has so the badge reads
+// truthfully ("360°" only for actual equirectangular content).
+function mediaBadge(room: TourRoomRow): string | null {
+  if (room.panoramaUrl) return "360°";
+  if (room.videoUrl) return "Бичлэг";
+  if (room.photoUrl) return "Зураг";
+  return null;
+}
 
 export function VirtualTour({ rooms }: { rooms: TourRoomRow[] }) {
   const [activeIdx, setActiveIdx] = useState(0);
@@ -65,13 +76,15 @@ export function VirtualTour({ rooms }: { rooms: TourRoomRow[] }) {
       tone="light"
       eyebrow="Виртуал аялал"
       title="Сургуулийг өөрөө нэг зочилж үзээрэй"
-      description="360° панорам зураг ашиглан сургуулийг бүрэн эхээр нь танилцаарай."
+      description="360° панорам, дроны бичлэг, зурагаар сургуулийг танилцаарай."
     >
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        {/* 360° Viewer */}
+        {/* Media viewer */}
         <Card className="overflow-hidden p-0">
-          <PanoramaViewer
+          <TourMediaViewer
             panoramaUrl={active?.panoramaUrl}
+            videoUrl={active?.videoUrl}
+            photoUrl={active?.photoUrl}
             title={`${active?.label} — ${active?.subtitle}`}
           />
 
@@ -167,9 +180,9 @@ export function VirtualTour({ rooms }: { rooms: TourRoomRow[] }) {
                       {room.subtitle}
                     </div>
                   </div>
-                  {room.panoramaUrl && (
+                  {mediaBadge(room) && (
                     <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">
-                      360°
+                      {mediaBadge(room)}
                     </span>
                   )}
                   <ChevronRight

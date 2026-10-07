@@ -3,6 +3,7 @@ import { canAccessAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import AdminGate from "../AdminGate";
 import GalleryPanel from "../GalleryPanel";
+import { PageHero } from "../PageHero";
 
 export default async function GalleryPage() {
   const access = await canAccessAdmin();
@@ -12,19 +13,20 @@ export default async function GalleryPage() {
     orderBy: { order: "asc" },
   });
 
+  const categories = new Set(gallery.map((g) => g.category));
+
   return (
     <>
-      <div className="mb-6 flex items-center gap-3">
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500/20 to-violet-500/20 text-pink-500">
-          <Image className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Галерей</h1>
-          <p className="text-xs text-muted-foreground">
-            Сургуулийн зургууд · {gallery.length} зураг
-          </p>
-        </div>
-      </div>
+      <PageHero
+        icon={Image}
+        title="Галерей"
+        subtitle="Сургуулийн зурагны цомог, ангиллаар зохион байгуулагдсан"
+        accent="pink"
+        stats={[
+          { label: "Зураг", value: gallery.length, tone: "accent" },
+          { label: "Ангилал", value: categories.size },
+        ]}
+      />
       <GalleryPanel
         images={gallery.map((g) => ({
           id: g.id,

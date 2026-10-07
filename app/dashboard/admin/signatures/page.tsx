@@ -9,6 +9,10 @@ export default async function SignaturesPage() {
   if (access.role !== "ADMIN") return <AdminGate role={access.role as "APPROVER" | null} />;
 
   const signatures = await prisma.signature.findMany({
+    // Same safety cap as the admin dashboard: unbounded fetch is a
+    // future-you problem waiting to happen, even though the domain
+    // limits growth naturally.
+    take: 2000,
     orderBy: { createdAt: "desc" },
     include: {
       teacher: { select: { id: true, name: true, position: true } },

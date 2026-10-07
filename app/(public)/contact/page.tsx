@@ -1,24 +1,28 @@
 import type { Metadata } from "next";
 import { Contact } from "@/components/home/Contact";
-import { loadSchoolInfo } from "@/lib/site-data";
+import { loadSchoolInfoBundle, loadSchoolName } from "@/lib/school-info";
 
-export const metadata: Metadata = {
-  title: "Холбоо барих · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-  description:
-    "Албан бичиг, сурагчийн бүртгэл, эцэг эхийн хүсэлт болон бусад асуудлаар холбогдох.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await loadSchoolName();
+  return {
+    title: name ? `Холбоо барих · ${name}` : "Холбоо барих",
+    description:
+      "Албан бичиг, сурагчийн бүртгэл, эцэг эхийн хүсэлт болон бусад асуудлаар холбогдох.",
+  };
+}
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function ContactPage() {
-  const info = await loadSchoolInfo();
-
+  const info = await loadSchoolInfoBundle();
   return (
     <Contact
-      address={info.address ?? "Сүхбаатар дүүрэг, 10-р хороо"}
-      phone={info.phone ?? "(976) 7011-1180"}
-      email={info.email ?? "uuriingegee22@gmail.com"}
-      workHours={info.work_hours ?? "Дав—Баа · 08:00 — 17:00"}
+      schoolName={info.name ?? ""}
+      address={info.address ?? ""}
+      phone={info.phone ?? ""}
+      email={info.email ?? ""}
+      workHours={info.workHours ?? ""}
+      mapUrl={info.mapUrl ?? ""}
     />
   );
 }

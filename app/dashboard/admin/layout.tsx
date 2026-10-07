@@ -1,4 +1,5 @@
 import { canAccessAdmin } from "@/lib/admin";
+import { prisma } from "@/lib/prisma";
 import AdminSidebar from "./AdminSidebar";
 
 export default async function AdminLayout({
@@ -16,10 +17,16 @@ export default async function AdminLayout({
   // themselves and either render <AdminGate role={...}/> or the panel, so
   // authorisation is still enforced page-by-page.
   const role = access.role === "ADMIN" ? "ADMIN" : "APPROVER";
+  const newFeedback =
+    role === "ADMIN"
+      ? await prisma.feedback.count({ where: { status: "new" } }).catch(() => 0)
+      : 0;
 
   return (
     <div className="flex h-screen">
-      {access.allowed && <AdminSidebar role={role} />}
+      {access.allowed && (
+        <AdminSidebar role={role} badges={{ "/dashboard/admin/feedback": newFeedback }} />
+      )}
       <main className="flex-1 overflow-auto">
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>

@@ -5,3 +5,11 @@ out
 *.db
 *.db-journal
 .DS_Store
+
+# Locally-uploaded files (dev + self-hosted MVP). In production these
+# should be served from R2 — see lib/uploads.ts.
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Local DB backups (may contain personal data)
+backups/

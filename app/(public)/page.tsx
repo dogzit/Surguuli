@@ -5,19 +5,30 @@ import { Gallery } from "@/components/home/Gallery";
 import { Achievements } from "@/components/home/Achievements";
 import { EventsSection } from "@/components/home/EventsSection";
 import { ClubsSection } from "@/components/home/ClubsSection";
-import { loadSchoolInfo, loadNewsItems, loadGallery, loadAchievements, loadEvents, loadClubs } from "@/lib/site-data";
+import { loadNewsItems, loadGallery, loadAchievements, loadEvents, loadClubs } from "@/lib/site-data";
+import { loadSchoolInfoBundle } from "@/lib/school-info";
 
-export const metadata: Metadata = {
-  title: "Нийслэлийн ерөнхий боловсролын 3-р сургууль · Албан ёсны хуудас",
-  description:
-    "Нийслэлийн ерөнхий боловсролын 3-р сургуулийн танилцуулга, түүх, виртуал аялал, анги бүлэг, сургалтын чанар, хүүхэд хамгааллын албан ёсны цахим хуудас.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const info = await loadSchoolInfoBundle();
+  const title = info.name
+    ? `${info.name} · Албан ёсны хуудас`
+    : "Албан ёсны хуудас";
+  return {
+    title,
+    description: info.name
+      ? `${info.name}-ийн танилцуулга, түүх, виртуал аялал, анги бүлэг, сургалтын чанар, хүүхэд хамгааллын албан ёсны цахим хуудас.`
+      : "Албан ёсны цахим хуудас.",
+  };
+}
 
-export const dynamic = "force-dynamic";
+// ISR: rebuild at most once per minute — admin mutations call
+// revalidatePath("/") so edits show up immediately anyway. Removes the
+// per-request Prisma fan-out that used to hit Neon for every visitor.
+export const revalidate = 60;
 
 export default async function HomePage() {
   const [info, newsItems, gallery, achievements, events, clubs] = await Promise.all([
-    loadSchoolInfo(),
+    loadSchoolInfoBundle(),
     loadNewsItems(),
     loadGallery(),
     loadAchievements(),
@@ -28,25 +39,25 @@ export default async function HomePage() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   // Structured data helps search engines identify the site as an official
-  // educational organization. Kept intentionally minimal so wrong DB values
-  // (address, phone) don't produce misleading rich results.
+  // educational organization. All fields come from SchoolInfo — never
+  // synthesized so wrong values don't produce misleading rich results.
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "EducationalOrganization",
-    name: "Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-    alternateName: "3-р сургууль",
+    name: info.name ?? undefined,
+    alternateName: info.shortName ?? undefined,
     url: siteUrl,
-    foundingDate: info.founded_year ?? "1921",
+    foundingDate: info.foundedYear ?? undefined,
     address: info.address
       ? {
           "@type": "PostalAddress",
           streetAddress: info.address,
-          addressLocality: "Улаанбаатар",
+          addressLocality: info.city ?? undefined,
           addressCountry: "MN",
         }
       : undefined,
-    telephone: info.phone,
-    email: info.email,
+    telephone: info.phone ?? undefined,
+    email: info.email ?? undefined,
     sameAs: [] as string[],
   };
 
@@ -58,11 +69,14 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Hero
-        students={info.hero_stats_students ?? "1,120+"}
-        staff={info.hero_stats_staff ?? "84"}
-        foundedYear={info.founded_year ?? "1921"}
-        principalName={info.principal_name}
-        principalQuote={info.principal_quote}
+        schoolName={info.name}
+        district={info.district}
+        city={info.city}
+        foundedYear={info.foundedYear}
+        students={info.heroStudents}
+        staff={info.heroStaff}
+        principalName={info.principalName}
+        principalQuote={info.principalQuote}
       />
       <News items={newsItems} />
       <Gallery images={gallery} />
