@@ -61,7 +61,7 @@ export async function submitFeedback(
   _prev: FeedbackFormState,
   formData: FormData,
 ): Promise<FeedbackFormState> {
-  const thanks = "Таны санал хүлээж авлаа. Баярлалаа!";
+  const thanks = "Таны санал сургуулийн захиргаанд амжилттай хүрлээ.";
 
   // Honeypot — bots fill every input. Same success message so they learn nothing.
   if (String(formData.get("company") ?? "").trim()) {
@@ -147,7 +147,7 @@ export async function submitFeedback(
   return {
     ok: true,
     message: actor
-      ? "Таны санал хүлээж авлаа. Хариуг энэ хуудасны доод хэсгээс харна уу."
+      ? "Таны санал захиргаанд хүрлээ. Хариуг энэ хуудасны доод хэсгээс харна уу."
       : thanks,
   };
 }
