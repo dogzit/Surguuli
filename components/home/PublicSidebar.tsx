@@ -8,7 +8,7 @@ import {
   Menu, X, Home, Plane, Users, Calendar, Clock, Star, Wallet,
   BookOpen, Shield, Newspaper, Phone, LogIn, LogOut, User, ChevronRight,
   PanelLeftClose, PanelLeftOpen, AlertTriangle, FileSignature, CheckCircle2,
-  Search, MessageSquareHeart,
+  Search, MessageSquareHeart, AlarmClock,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -47,6 +47,7 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
   // routes to the right dashboard when they tap their name.
   const [authState, setAuthState] = useState<{
     loggedIn: boolean;
+    kind?: "user" | "student" | "parent";
     role?: string;
     name?: string;
     homePath?: string;
@@ -55,6 +56,8 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
   const [loggingOut, setLoggingOut] = useState(false);
   const [signatureData, setSignatureData] = useState<SignatureData | null>(null);
   const { collapsed, toggle } = useSidebar();
+  // Any staff member can be on gate duty, so all of them get the shortcut.
+  const isStaff = authState.loggedIn && authState.kind === "user";
   const pathname = usePathname();
   const router = useRouter();
 
@@ -242,6 +245,16 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
                 </Link>
                 <NotificationBell />
               </div>
+              {isStaff && (
+                <Link
+                  href="/dashboard/duty"
+                  onClick={onNavigate}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent/50 hover:text-foreground"
+                >
+                  <AlarmClock className="h-4 w-4" />
+                  <span>Хоцролт бүртгэх</span>
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => setLogoutModal(true)}
@@ -350,6 +363,15 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
                   </Link>
                 );
               })}
+              {isStaff && (
+                <Link
+                  href="/dashboard/duty"
+                  title="Хоцролт бүртгэх"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-accent/50 hover:text-foreground"
+                >
+                  <AlarmClock className="h-4 w-4" />
+                </Link>
+              )}
               <Link
                 href="/feedback"
                 title="Санал хүсэлт"

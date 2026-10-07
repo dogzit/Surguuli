@@ -25,7 +25,11 @@ export default async function AdminLayout({
   return (
     <div className="flex h-screen">
       {access.allowed && (
-        <AdminSidebar role={role} badges={{ "/dashboard/admin/feedback": newFeedback }} />
+        <AdminSidebar
+          role={role}
+          position={access.position}
+          badges={{ "/dashboard/admin/feedback": newFeedback }}
+        />
       )}
       <main className="flex-1 overflow-auto">
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>

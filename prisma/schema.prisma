@@ -90,6 +90,7 @@ model Student {
   inviteCodes   InviteCode[]
   portfolio     StudentPortfolioItem[]
   clubMembers   ClubMember[]
+  lateArrivals  LateArrival[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -396,6 +397,34 @@ model ContactMessage {
   updatedAt DateTime @updatedAt
 
   @@index([status, createdAt])
+}
+
+// A student arriving late, recorded by the teacher on gate duty that day
+// (/dashboard/duty). `date` is the school-day key in Asia/Ulaanbaatar
+// ("YYYY-MM-DD") so day boundaries never drift with the server's UTC clock.
+// Only some grades are in the Student table, so the name and class are typed
+// by the duty teacher and stored as text; `studentId` is linked when the
+// teacher picks a matching student. One row per student per day. The social
+// worker reviews the aggregate in /dashboard/admin/lateness.
+model LateArrival {
+  id             String   @id @default(cuid())
+  date           String   // "YYYY-MM-DD", Asia/Ulaanbaatar
+  studentName    String
+  classLabel     String   // normalised, e.g. "5Б" (see normalizeClassLabel)
+  minutesLate    Int
+  comesFrom      String   // where the student comes from, e.g. "13-р хороо"
+  studentId      String?
+  recordedById   String?  // User.id; null when recorded with the admin PIN only
+  recordedByName String   // snapshot, survives the user being deleted
+
+  student        Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([studentId, date])
+  @@index([date])
+  @@index([classLabel, date])
 }
 
 // Feedback & suggestions box (/feedback). Anyone may submit; signed-in

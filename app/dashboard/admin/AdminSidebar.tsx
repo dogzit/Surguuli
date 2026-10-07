@@ -23,11 +23,15 @@ import {
   Trophy,
   School,
   MessageSquareHeart,
+  AlarmClock,
+  BarChart3,
 } from "lucide-react";
 import Logo from "@/components/Logo";
+import { SOCIAL_WORKER_POSITION } from "@/lib/positions";
 import { cn } from "@/lib/utils";
 
-// approverVisible=true items are shown to APPROVER role too. Everything else
+// approverVisible=true items are shown to APPROVER role too; approverPositions
+// limits an item to approvers holding one of those positions. Everything else
 // requires admin PIN and would otherwise send the approver to AdminGate.
 const NAV_ITEMS: Array<{
   href: string;
@@ -35,8 +39,11 @@ const NAV_ITEMS: Array<{
   icon: typeof LayoutDashboard;
   exact?: boolean;
   approverVisible?: boolean;
+  approverPositions?: readonly string[];
 }> = [
   { href: "/dashboard/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, approverVisible: true },
+  { href: "/dashboard/duty", label: "Хоцролт бүртгэх", icon: AlarmClock, approverVisible: true },
+  { href: "/dashboard/admin/lateness", label: "Хоцролтын тайлан", icon: BarChart3, approverPositions: [SOCIAL_WORKER_POSITION] },
   { href: "/dashboard/admin/signatures", label: "Гарын үсэг", icon: FileSignature },
   { href: "/dashboard/admin/classrooms", label: "Ангиуд", icon: GraduationCap },
   { href: "/dashboard/admin/students", label: "Сурагчид", icon: Users },
@@ -62,16 +69,20 @@ type Badges = Partial<Record<string, number>>;
 function NavLinks({
   onNavigate,
   role,
+  position,
   badges = {},
 }: {
   onNavigate?: () => void;
   role: "ADMIN" | "APPROVER" | null;
+  position?: string | null;
   badges?: Badges;
 }) {
   const pathname = usePathname();
   const items = role === "ADMIN"
     ? NAV_ITEMS
-    : NAV_ITEMS.filter((n) => n.approverVisible);
+    : NAV_ITEMS.filter(
+        (n) => n.approverVisible || (!!position && n.approverPositions?.includes(position)),
+      );
 
   return (
     <>
@@ -143,9 +154,11 @@ function NavLinks({
 
 export default function AdminSidebar({
   role,
+  position,
   badges,
 }: {
   role: "ADMIN" | "APPROVER" | null;
+  position?: string | null;
   badges?: Badges;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -176,14 +189,14 @@ export default function AdminSidebar({
             >
               <X className="h-4 w-4" />
             </button>
-            <NavLinks onNavigate={() => setMobileOpen(false)} role={role} badges={badges} />
+            <NavLinks onNavigate={() => setMobileOpen(false)} role={role} position={position} badges={badges} />
           </aside>
         </>
       )}
 
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 border-r border-border/50 bg-card/50 lg:flex lg:flex-col">
-        <NavLinks role={role} badges={badges} />
+        <NavLinks role={role} position={position} badges={badges} />
       </aside>
     </>
   );
