@@ -13,3 +13,6 @@ public/uploads/*
 
 # Local DB backups (may contain personal data)
 backups/
+
+# Teacher/staff website — its own git repo (github.com/dogzit/Surguuli-staff)
+/staff/

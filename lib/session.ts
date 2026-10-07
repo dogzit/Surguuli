@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
-import { ACCOUNTANT_POSITION } from "./positions";
 
 // One cookie for the token, one for the actor type. Splitting them lets
 // middleware verify the signature without a DB hit — the type tells us
@@ -72,21 +71,6 @@ export function isLegacyPin(stored: string | null): boolean {
   return !!stored && !stored.startsWith("$2");
 }
 
-/**
- * Get the currently logged-in staff user, if any. Kept as a thin wrapper
- * for backwards compatibility with everything already written against
- * `getCurrentUser()`. Prefer `getCurrentActor()` in new code.
- */
-export async function getCurrentUser() {
-  const cookieStore = await cookies();
-  const type = cookieStore.get(SESSION_TYPE_COOKIE)?.value as ActorKind | undefined;
-  if (type && type !== "user") return null;
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  const uid = verifySession(token, "user");
-  if (!uid) return null;
-  return prisma.user.findUnique({ where: { id: uid } });
-}
-
 // Discriminated union of everyone who might be logged in. Consumers
 // switch on `.kind` to know which fields are safe to read.
 export type Actor =
@@ -114,10 +98,10 @@ export async function getCurrentActor(): Promise<Actor | null> {
   if (!id) return null;
 
   switch (type) {
-    case "user": {
-      const user = await prisma.user.findUnique({ where: { id } });
-      return user ? { kind: "user", user } : null;
-    }
+    case "user":
+      // Staff sign in on the separate staff site; a staff cookie left on
+      // this domain from before the split counts as signed out.
+      return null;
     case "student": {
       const student = await prisma.student.findUnique({ where: { id } });
       return student ? { kind: "student", student } : null;
@@ -141,37 +125,16 @@ export async function clearAnySession() {
   cookieStore.delete(SESSION_TYPE_COOKIE);
 }
 
-export function roleHomePath(
-  role: string,
-  position?: string | null,
-): string {
-  // Accountant is an APPROVER with a specific position and has their own
-  // dashboard — route there before the generic admin fallback so they
-  // don't land on a page they can't act on.
-  if (role === "APPROVER" && position === ACCOUNTANT_POSITION) {
-    return "/dashboard/accountant";
-  }
-  if (role === "ADMIN" || role === "APPROVER") return "/dashboard/admin";
-  return "/";
-}
-
 /** Route the given actor to whichever dashboard makes sense for them. */
 export function actorHomePath(actor: Actor): string {
   switch (actor.kind) {
     case "user":
-      return roleHomePath(actor.user.role, actor.user.position);
+      return "/";
     case "student":
       return "/dashboard/student";
     case "parent":
       return "/dashboard/parent";
   }
-}
-
-export async function requireUser(role?: "APPROVER" | "TEACHER") {
-  const me = await getCurrentUser();
-  if (!me) redirect("/login");
-  if (role && me.role !== role) redirect(roleHomePath(me.role, me.position));
-  return me;
 }
 
 /** Require the current visitor to be a student. Redirects otherwise. */

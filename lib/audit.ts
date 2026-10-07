@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { getCurrentUser } from "./session";
+import { getCurrentActor, type Actor } from "./session";
 import { getClientIp } from "./rate-limit";
 
 export interface AuditInput {
@@ -11,27 +11,25 @@ export interface AuditInput {
 }
 
 /**
- * Write an audit-log row. Never throws — if the DB is unreachable (or the
- * AuditLog table doesn't exist yet because migrations haven't been pushed)
- * we log to stderr rather than blocking the mutation the caller is
- * completing.
+ * Write an audit-log row. Never throws — if the DB is unreachable we log to
+ * stderr rather than blocking the mutation the caller is completing.
  *
- * The actor is derived from the current request context: prefer the signed-in
- * user (approver session) and fall back to the "admin" label when only the
- * admin PIN cookie is present.
+ * The actor is the signed-in student or parent; staff actions are logged
+ * by the staff site.
  */
 export async function logAudit(input: AuditInput): Promise<void> {
   try {
-    const [user, ip] = await Promise.all([
-      getCurrentUser().catch(() => null),
+    const [actor, ip] = await Promise.all([
+      getCurrentActor().catch(() => null),
       getClientIp().catch(() => "unknown"),
     ]);
+    const who = describe(actor);
 
     await prisma.auditLog.create({
       data: {
         action: input.action,
-        actorId: user?.id ?? null,
-        actorName: user?.name ?? "admin",
+        actorId: who.id,
+        actorName: who.name,
         targetType: input.targetType ?? null,
         targetId: input.targetId ?? null,
         metadata:
@@ -43,5 +41,16 @@ export async function logAudit(input: AuditInput): Promise<void> {
     });
   } catch (err) {
     console.error("[audit] failed to write log", err);
+  }
+}
+
+function describe(actor: Actor | null): { id: string | null; name: string } {
+  switch (actor?.kind) {
+    case "student":
+      return { id: actor.student.id, name: `${actor.student.lastName}. ${actor.student.firstName}` };
+    case "parent":
+      return { id: actor.parent.id, name: actor.parent.name };
+    default:
+      return { id: null, name: "Зочин" };
   }
 }

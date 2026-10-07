@@ -2,27 +2,26 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { GraduationCap, ShieldCheck, Users } from "lucide-react";
+import { GraduationCap, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import UserPicker from "./UserPicker";
 import StudentLoginForm from "./StudentLoginForm";
 import ParentLoginForm from "./ParentLoginForm";
 
-type Role = "staff" | "student" | "parent";
+// Staff sign in on the separate staff site (linked below the card).
+type Role = "student" | "parent";
 
 const TABS: Array<{ id: Role; label: string; icon: typeof GraduationCap; accent: string }> = [
-  { id: "staff", label: "Багш / Ажилтан", icon: ShieldCheck, accent: "text-primary" },
   { id: "student", label: "Сурагч", icon: GraduationCap, accent: "text-emerald-600 dark:text-emerald-400" },
   { id: "parent", label: "Эцэг эх", icon: Users, accent: "text-indigo-600 dark:text-indigo-400" },
 ];
 
 export default function RolePicker() {
-  const [role, setRole] = useState<Role>("staff");
+  const [role, setRole] = useState<Role>("student");
 
   return (
     <div>
       {/* Role tabs */}
-      <div className="grid grid-cols-3 border-b border-border">
+      <div className="grid grid-cols-2 border-b border-border">
         {TABS.map((t) => {
           const Icon = t.icon;
           const active = role === t.id;
@@ -58,7 +57,6 @@ export default function RolePicker() {
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.18 }}
         >
-          {role === "staff" && <UserPicker />}
           {role === "student" && <StudentLoginForm />}
           {role === "parent" && <ParentLoginForm />}
         </motion.div>

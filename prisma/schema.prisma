@@ -1,3 +1,7 @@
+// COPY of the shared database schema. The source of truth is the staff site
+// (github.com/dogzit/Surguuli-staff): schema changes and `db push` happen
+// there, then this file is replaced with that one unchanged. Do not edit here.
+
 generator client {
   provider = "prisma-client-js"
 }

@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Menu, X, Home, Plane, Users, Calendar, Clock, Star, Wallet,
   BookOpen, Shield, Newspaper, Phone, LogIn, LogOut, User, ChevronRight,
-  PanelLeftClose, PanelLeftOpen, AlertTriangle, FileSignature, CheckCircle2,
-  Search, MessageSquareHeart, AlarmClock,
+  PanelLeftClose, PanelLeftOpen, AlertTriangle,
+  Search, MessageSquareHeart,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -35,29 +35,19 @@ const NAV_LINKS = [
   { href: "/contact", label: "Холбоо", icon: Phone },
 ] as const;
 
-interface SignatureData {
-  signed: number;
-  total: number;
-  complete: boolean;
-}
-
 export default function PublicSidebar({ schoolName }: { schoolName: string | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   // `homePath` comes from /api/auth/status so a student/parent session
   // routes to the right dashboard when they tap their name.
   const [authState, setAuthState] = useState<{
     loggedIn: boolean;
-    kind?: "user" | "student" | "parent";
     role?: string;
     name?: string;
     homePath?: string;
   }>({ loggedIn: false });
   const [logoutModal, setLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [signatureData, setSignatureData] = useState<SignatureData | null>(null);
   const { collapsed, toggle } = useSidebar();
-  // Any staff member can be on gate duty, so all of them get the shortcut.
-  const isStaff = authState.loggedIn && authState.kind === "user";
   const pathname = usePathname();
   const router = useRouter();
 
@@ -71,27 +61,6 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
       .then(setAuthState)
       .catch(() => setAuthState({ loggedIn: false }));
   }, []);
-
-  // Fetch signature progress for teachers ONLY — students and parents
-  // don't have a vacation-signature workflow, so skip the call entirely.
-  useEffect(() => {
-    const isTeacher =
-      authState.loggedIn &&
-      authState.role !== "ADMIN" &&
-      authState.role !== "APPROVER" &&
-      authState.role !== "STUDENT" &&
-      authState.role !== "PARENT";
-    if (isTeacher) {
-      fetch("/api/teacher/signatures/progress")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d && d.total > 0) {
-            setSignatureData(d);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [authState]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -195,38 +164,6 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
         </div>
       </Link>
 
-      {/* Signature Progress for Teachers */}
-      {signatureData && (
-        <div className="mx-3 mb-3 rounded-xl border border-border/50 bg-muted/30 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            {signatureData.complete ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            ) : (
-              <FileSignature className="h-4 w-4 text-primary" />
-            )}
-            <span className="text-xs font-medium">
-              {signatureData.complete ? "Амралт баталгаажсан!" : "Гарын үсэг"}
-            </span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.round((signatureData.signed / signatureData.total) * 100)}%` }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className={cn(
-                "h-full rounded-full",
-                signatureData.complete
-                  ? "bg-emerald-500"
-                  : "bg-gradient-to-r from-primary/80 to-primary",
-              )}
-            />
-          </div>
-          <div className="mt-1.5 text-[10px] text-muted-foreground">
-            {signatureData.signed}/{signatureData.total} гарын үсэг
-          </div>
-        </div>
-      )}
-
       {/* Bottom section - pinned to bottom */}
       <div className="mt-auto border-t border-border/50">
         {/* Auth */}
@@ -245,16 +182,6 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
                 </Link>
                 <NotificationBell />
               </div>
-              {isStaff && (
-                <Link
-                  href="/dashboard/duty"
-                  onClick={onNavigate}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent/50 hover:text-foreground"
-                >
-                  <AlarmClock className="h-4 w-4" />
-                  <span>Хоцролт бүртгэх</span>
-                </Link>
-              )}
               <button
                 type="button"
                 onClick={() => setLogoutModal(true)}
@@ -363,15 +290,6 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
                   </Link>
                 );
               })}
-              {isStaff && (
-                <Link
-                  href="/dashboard/duty"
-                  title="Хоцролт бүртгэх"
-                  className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-accent/50 hover:text-foreground"
-                >
-                  <AlarmClock className="h-4 w-4" />
-                </Link>
-              )}
               <Link
                 href="/feedback"
                 title="Санал хүсэлт"

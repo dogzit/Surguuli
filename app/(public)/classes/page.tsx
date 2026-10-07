@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { ClassesSection } from "@/components/home/ClassesSection";
 import { ClassesSkeleton } from "@/components/home/classes/ClassesSkeleton";
 import { loadClassrooms } from "@/lib/classrooms";
-import { isStaffViewer } from "@/lib/admin";
 import { loadSchoolInfoBundle, loadSchoolName } from "@/lib/school-info";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,21 +13,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// Rendered per request: student names are included only for signed-in
-// staff, so this page must never be cached and shared between visitors.
-export const dynamic = "force-dynamic";
+// Class summaries only — student names are for staff, who see the full
+// rosters on the staff site. The staff site refreshes this cache on change.
+export const revalidate = 60;
 
 async function ClassesData() {
-  const canSeeStudents = await isStaffViewer();
-  const [classrooms, info] = await Promise.all([
-    loadClassrooms({ includeStudents: canSeeStudents }),
-    loadSchoolInfoBundle(),
-  ]);
+  const [classrooms, info] = await Promise.all([loadClassrooms(), loadSchoolInfoBundle()]);
   return (
     <ClassesSection
       classrooms={classrooms}
       gradeManagers={info.gradeManagers}
-      canSeeStudents={canSeeStudents}
+      canSeeStudents={false}
     />
   );
 }

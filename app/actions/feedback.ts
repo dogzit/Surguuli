@@ -1,19 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { ensureAdmin } from "@/lib/admin";
-import { logAudit } from "@/lib/audit";
 import { getCurrentActor, type Actor } from "@/lib/session";
 import { hitRateLimit, getClientIp } from "@/lib/rate-limit";
-import { notifyActor, notifyMany } from "@/lib/notifications";
-import {
-  FEEDBACK_KINDS,
-  FEEDBACK_STATUSES,
-  FEEDBACK_TOPICS,
-  isOption,
-} from "@/lib/feedback";
-import type { Result } from "./admin";
+import { notifyMany } from "@/lib/notifications";
+import { FEEDBACK_KINDS, FEEDBACK_TOPICS, isOption } from "@/lib/feedback";
 
 export interface FeedbackFormState {
   ok: boolean;
@@ -26,8 +17,6 @@ const MAX_BODY = 4_000;
 const MIN_BODY = 10;
 const MAX_NAME = 120;
 const MAX_CONTACT = 200;
-const MAX_NOTE = 2_000;
-const MAX_RESPONSE = 4_000;
 
 // Per-IP limit. Tighter than search, looser than login.
 const MAX_PER_WINDOW = 5;
@@ -143,89 +132,10 @@ export async function submitFeedback(
     },
   );
 
-  revalidatePath("/dashboard/admin/feedback");
   return {
     ok: true,
     message: actor
       ? "Таны санал захиргаанд хүрлээ. Хариуг энэ хуудасны доод хэсгээс харна уу."
       : thanks,
   };
-}
-
-// ── Admin ────────────────────────────────────────────────────
-
-export async function updateFeedback(
-  id: string,
-  input: { status?: string; adminNote?: string; response?: string },
-): Promise<Result> {
-  const gate = await ensureAdmin();
-  if (!gate.ok) return gate;
-
-  const existing = await prisma.feedback.findUnique({ where: { id } });
-  if (!existing) return { ok: false, error: "Санал олдсонгүй." };
-
-  const data: {
-    status?: string;
-    adminNote?: string | null;
-    response?: string | null;
-    respondedAt?: Date | null;
-  } = {};
-
-  if (input.status !== undefined) {
-    if (!isOption(FEEDBACK_STATUSES, input.status)) {
-      return { ok: false, error: "Төлөв буруу байна." };
-    }
-    data.status = input.status;
-  }
-  if (input.adminNote !== undefined) {
-    data.adminNote = input.adminNote.trim().slice(0, MAX_NOTE) || null;
-  }
-
-  let newResponse: string | null = null;
-  if (input.response !== undefined) {
-    const response = input.response.trim().slice(0, MAX_RESPONSE) || null;
-    data.response = response;
-    if (response !== existing.response) {
-      data.respondedAt = response ? new Date() : null;
-      newResponse = response;
-    }
-  }
-
-  await prisma.feedback.update({ where: { id }, data });
-
-  if (newResponse && existing.actorKind && existing.actorId && !existing.anonymous) {
-    await notifyActor({
-      actorKind: existing.actorKind as Actor["kind"],
-      actorId: existing.actorId,
-      category: "feedback",
-      title: "Таны саналд хариу ирлээ",
-      body: newResponse.slice(0, 200),
-      href: "/feedback#my-feedback",
-      alsoEmail: true,
-    });
-  }
-
-  await logAudit({
-    action: "feedback.update",
-    targetType: "Feedback",
-    targetId: id,
-    metadata: { status: data.status, responded: newResponse !== null },
-  });
-
-  revalidatePath("/dashboard/admin/feedback");
-  revalidatePath("/dashboard/admin", "layout");
-  return { ok: true, message: newResponse ? "Хариу илгээгдлээ." : "Хадгалагдлаа." };
-}
-
-export async function deleteFeedback(id: string): Promise<Result> {
-  const gate = await ensureAdmin();
-  if (!gate.ok) return gate;
-
-  const deleted = await prisma.feedback.deleteMany({ where: { id } });
-  if (deleted.count === 0) return { ok: false, error: "Санал олдсонгүй." };
-
-  await logAudit({ action: "feedback.delete", targetType: "Feedback", targetId: id });
-  revalidatePath("/dashboard/admin/feedback");
-  revalidatePath("/dashboard/admin", "layout");
-  return { ok: true, message: "Устгагдлаа." };
 }

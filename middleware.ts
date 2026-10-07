@@ -2,10 +2,21 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const SESSION_COOKIE = "session_uid";
 const SESSION_TYPE_COOKIE = "session_type";
-const ADMIN_COOKIE = "admin_uid";
 
-type ActorKind = "user" | "student" | "parent";
-const ACTOR_KINDS = new Set<ActorKind>(["user", "student", "parent"]);
+// Staff ("user") sessions belong to the staff site; here only students and
+// parents count as signed in.
+type ActorKind = "student" | "parent";
+const ACTOR_KINDS = new Set<ActorKind>(["student", "parent"]);
+
+// Staff pages moved to the staff site; old bookmarks are forwarded there.
+const STAFF_SITE_URL = (process.env.NEXT_PUBLIC_STAFF_SITE_URL ?? "").replace(/\/$/, "");
+const STAFF_PATHS = [
+  "/dashboard/admin",
+  "/dashboard/teacher",
+  "/dashboard/accountant",
+  "/dashboard/duty",
+  "/dashboard/settings",
+];
 
 // Strict allowlist of real static-file extensions. Unlike `pathname.includes(".")`,
 // this cannot be bypassed with paths like /dashboard/admin.foo — a dot in a
@@ -14,14 +25,6 @@ const STATIC_FILE_RE = /\.(png|jpe?g|gif|webp|avif|svg|ico|css|js|mjs|map|txt|xm
 
 function sessionSecret(): string | null {
   const s = process.env.SESSION_SECRET || process.env.ADMIN_SECRET;
-  return s && s.length >= 16 ? s : null;
-}
-
-// Must match adminSecret() in lib/admin.ts, which signs the cookie with
-// ADMIN_SECRET first. Using sessionSecret() here rejected valid admin
-// cookies whenever the two env values differ.
-function adminSecret(): string | null {
-  const s = process.env.ADMIN_SECRET || process.env.SESSION_SECRET;
   return s && s.length >= 16 ? s : null;
 }
 
@@ -41,21 +44,6 @@ async function hmacRaw(value: string, secret: string): Promise<Uint8Array> {
   );
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
   return new Uint8Array(sig);
-}
-
-async function hmacHex(value: string, secret: string): Promise<string> {
-  return Array.from(await hmacRaw(value, secret))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-/** Verify the HMAC-signed admin cookie (`lib/admin.ts` format). */
-async function hasValidAdminCookie(token: string | undefined): Promise<boolean> {
-  if (!token) return false;
-  const secret = adminSecret();
-  if (!secret) return false; // fail closed
-  const expected = await hmacHex("admin", secret);
-  return token.length === expected.length && token === expected;
 }
 
 /**
@@ -95,36 +83,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const sessionToken = req.cookies.get(SESSION_COOKIE)?.value;
-  const sessionKind = readSessionKind(req.cookies.get(SESSION_TYPE_COOKIE)?.value);
-  const adminToken = req.cookies.get(ADMIN_COOKIE)?.value;
-
-  const sessionOk = sessionKind
-    ? await hasValidSessionOfKind(sessionToken, sessionKind)
-    : false;
-  const validSession = sessionOk ? sessionKind : null;
-
-  // 2. Admin area gating (unchanged behaviour except sessionKind must match).
-  if (pathname.startsWith("/dashboard/admin")) {
-    // Root + audit are public entry points so AdminGate can render its
-    // PIN prompt for logged-out visitors.
-    if (pathname === "/dashboard/admin" || pathname === "/dashboard/admin/audit") {
-      return NextResponse.next();
-    }
-    const adminOk = await hasValidAdminCookie(adminToken);
-    // Only staff sessions unlock admin sub-routes — student/parent sessions
-    // are recognised elsewhere but never bypass the admin gate.
-    if (!adminOk && validSession !== "user") {
-      return NextResponse.redirect(new URL("/dashboard/admin", req.url));
-    }
-    return NextResponse.next();
+  // 2. Old staff URLs → the staff site.
+  if (STAFF_SITE_URL && STAFF_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.redirect(`${STAFF_SITE_URL}${pathname}${req.nextUrl.search}`);
   }
 
-  // 3. Student area — only student sessions may enter. Everyone else is
-  // sent to their own home so nobody sees a "wrong dashboard" empty state.
+  const sessionToken = req.cookies.get(SESSION_COOKIE)?.value;
+  const sessionKind = readSessionKind(req.cookies.get(SESSION_TYPE_COOKIE)?.value);
+  const validSession =
+    sessionKind && (await hasValidSessionOfKind(sessionToken, sessionKind)) ? sessionKind : null;
+
+  // 3. Student area — only student sessions may enter. A parent is sent to
+  // their own dashboard so nobody sees a "wrong dashboard" empty state.
   if (pathname.startsWith("/dashboard/student")) {
     if (validSession === "student") return NextResponse.next();
-    if (validSession === "user") return NextResponse.redirect(new URL("/dashboard/admin", req.url));
     if (validSession === "parent") return NextResponse.redirect(new URL("/dashboard/parent", req.url));
     return NextResponse.redirect(new URL("/login", req.url));
   }
@@ -132,24 +104,19 @@ export async function middleware(req: NextRequest) {
   // 4. Parent area — same story.
   if (pathname.startsWith("/dashboard/parent")) {
     if (validSession === "parent") return NextResponse.next();
-    if (validSession === "user") return NextResponse.redirect(new URL("/dashboard/admin", req.url));
     if (validSession === "student") return NextResponse.redirect(new URL("/dashboard/student", req.url));
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 5. Any other /dashboard path: require SOMEONE to be signed in.
-  if (pathname.startsWith("/dashboard") && !validSession && !adminToken) {
+  // 5. Any other /dashboard path: require a student or parent session.
+  if (pathname.startsWith("/dashboard") && !validSession) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
   // 6. Bounce away from /login if already signed in.
   if (pathname === "/login") {
-    if (validSession === "user") return NextResponse.redirect(new URL("/", req.url));
     if (validSession === "student") return NextResponse.redirect(new URL("/dashboard/student", req.url));
     if (validSession === "parent") return NextResponse.redirect(new URL("/dashboard/parent", req.url));
-    if (await hasValidAdminCookie(adminToken)) {
-      return NextResponse.redirect(new URL("/dashboard/admin", req.url));
-    }
   }
 
   return NextResponse.next();

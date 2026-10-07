@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { ActorKind } from "@/lib/session";
 import { renderEmailShell, sendMail } from "@/lib/mail";
+import { STAFF_SITE_URL } from "@/lib/staff-site";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -88,7 +89,7 @@ async function sendEmailForActor(input: NotificationInput): Promise<void> {
 
     const absoluteHref =
       input.href && !input.href.startsWith("http")
-        ? `${SITE_URL}${input.href}`
+        ? `${input.actorKind === "user" ? STAFF_SITE_URL || SITE_URL : SITE_URL}${input.href}`
         : input.href ?? undefined;
 
     const { html, text } = renderEmailShell({

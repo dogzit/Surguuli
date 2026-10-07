@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { actorHomePath, getCurrentActor } from "@/lib/session";
+import { STAFF_SITE_URL } from "@/lib/staff-site";
 import LoginHeader from "./LoginHeader";
 import RolePicker from "./RolePicker";
 import ThemeToggle from "@/components/ThemeToggle";
 import Footer from "@/components/Footer";
 
 export default async function LoginPage() {
-  // Anyone already logged in — staff, student, or parent — gets bounced
-  // straight to their own dashboard.
+  // A signed-in student or parent goes straight to their own dashboard.
   const actor = await getCurrentActor();
   if (actor) {
     redirect(actorHomePath(actor));
@@ -34,6 +34,19 @@ export default async function LoginPage() {
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm ring-1 ring-border">
             <RolePicker />
           </div>
+
+          {STAFF_SITE_URL && (
+            <p className="text-center text-sm text-muted-foreground">
+              Багш, ажилтан уу?{" "}
+              <a
+                href={STAFF_SITE_URL}
+                className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
+              >
+                Багш, ажилтны систем
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+            </p>
+          )}
         </div>
       </main>
       <Footer />

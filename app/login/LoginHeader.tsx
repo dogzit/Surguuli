@@ -47,7 +47,7 @@ export default function LoginHeader() {
         transition={{ duration: 0.3, delay: 0.22 }}
         className="mt-1 text-sm text-muted-foreground sm:text-base"
       >
-        Өөрийн нэрээ сонгоод PIN кодоо оруулна уу
+        Сурагч эсвэл эцэг эхийн эрхээр нэвтэрнэ үү
       </motion.p>
     </motion.div>
   );

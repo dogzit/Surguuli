@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { ensureAdmin } from "@/lib/admin";
 import { logAudit } from "@/lib/audit";
 import { getCurrentActor, type Actor, type ActorKind } from "@/lib/session";
 import { notifyActor } from "@/lib/notifications";
@@ -43,10 +42,6 @@ function revalidateStudent() {
 }
 function revalidateParent() {
   revalidatePath("/dashboard/parent");
-}
-function revalidateAdmin() {
-  revalidatePath("/dashboard/admin/portfolio");
-  revalidatePath("/dashboard/admin");
 }
 
 // ── Portfolio ─────────────────────────────────────────────────
@@ -98,7 +93,6 @@ export async function submitPortfolioItem(input: {
     metadata: { studentId: gate.actor.student.id, title },
   });
   revalidateStudent();
-  revalidateAdmin();
   return { ok: true, data: { id: created.id }, message: "Илгээгдлээ. Админ баталгаажуулна." };
 }
 
@@ -109,11 +103,8 @@ export async function deletePortfolioItem(id: string): Promise<Result> {
   const item = await prisma.studentPortfolioItem.findUnique({ where: { id } });
   if (!item) return { ok: false, error: "Ажил олдсонгүй." };
 
-  // Owner can always delete; admin can delete anyone's.
-  const isOwner =
-    gate.actor.kind === "student" && gate.actor.student.id === item.studentId;
-  const isAdmin = gate.actor.kind === "user" && gate.actor.user.role === "ADMIN";
-  if (!isOwner && !isAdmin) {
+  // Only the student who submitted it; staff remove items on the staff site.
+  if (gate.actor.kind !== "student" || gate.actor.student.id !== item.studentId) {
     return { ok: false, error: "Устгах эрхгүй." };
   }
 
@@ -122,71 +113,10 @@ export async function deletePortfolioItem(id: string): Promise<Result> {
     action: "portfolio.delete",
     targetType: "portfolio",
     targetId: id,
-    metadata: { by: isAdmin ? "admin" : "owner" },
+    metadata: { by: "owner" },
   });
   revalidateStudent();
-  revalidateAdmin();
   return { ok: true, message: "Устгагдлаа." };
-}
-
-export async function reviewPortfolioItem(
-  id: string,
-  input: { status: "approved" | "rejected"; note?: string; publishToGallery?: boolean },
-): Promise<Result> {
-  const adminGate = await ensureAdmin();
-  if (!adminGate.ok) return adminGate;
-
-  const actor = await getCurrentActor();
-  const reviewerId = actor?.kind === "user" ? actor.user.id : null;
-
-  if (input.status !== "approved" && input.status !== "rejected") {
-    return { ok: false, error: "Төлөв буруу." };
-  }
-
-  const item = await prisma.studentPortfolioItem.findUnique({ where: { id } });
-  if (!item) return { ok: false, error: "Ажил олдсонгүй." };
-
-  await prisma.studentPortfolioItem.update({
-    where: { id },
-    data: {
-      status: input.status,
-      reviewNote: input.note?.trim().slice(0, 1000) || null,
-      reviewedAt: new Date(),
-      reviewedById: reviewerId,
-      publishedToGallery:
-        input.status === "approved"
-          ? !!input.publishToGallery
-          : false,
-    },
-  });
-
-  await logAudit({
-    action: `portfolio.${input.status}`,
-    targetType: "portfolio",
-    targetId: id,
-    metadata: { studentId: item.studentId, publish: !!input.publishToGallery },
-  });
-  // Notify the student who submitted it so they see the outcome next
-  // time they log in (or immediately, via the bell).
-  void notifyActor({
-    actorKind: "student",
-    actorId: item.studentId,
-    category: "portfolio",
-    title:
-      input.status === "approved"
-        ? `"${item.title}" баталгаажлаа`
-        : `"${item.title}" татгалзагдсан`,
-    body: input.note?.trim() ? input.note.trim().slice(0, 200) : null,
-    href: "/dashboard/student",
-    alsoEmail: true,
-  });
-  revalidateAdmin();
-  revalidateStudent();
-  return {
-    ok: true,
-    message:
-      input.status === "approved" ? "Баталгаажлаа." : "Татгалзсан.",
-  };
 }
 
 // ── Club membership ───────────────────────────────────────────

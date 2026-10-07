@@ -10,7 +10,7 @@ import {
 import { requireParent } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
-import EmailForm from "@/app/dashboard/settings/EmailForm";
+import EmailForm from "@/components/settings/EmailForm";
 import { PinChangeForm } from "@/components/settings/PinChangeForm";
 
 export const dynamic = "force-dynamic";
