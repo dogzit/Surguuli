@@ -32,7 +32,6 @@ const NAV_LINKS = [
   { href: "/protection", label: "Хүүхэд хамгаалал", icon: Shield },
   { href: "/news", label: "Мэдээ", icon: Newspaper },
   { href: "/search", label: "Хайлт", icon: Search },
-  { href: "/feedback", label: "Санал хүсэлт", icon: MessageSquareHeart },
   { href: "/contact", label: "Холбоо", icon: Phone },
 ] as const;
 
@@ -42,7 +41,7 @@ interface SignatureData {
   complete: boolean;
 }
 
-export default function PublicSidebar() {
+export default function PublicSidebar({ schoolName }: { schoolName: string | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   // `homePath` comes from /api/auth/status so a student/parent session
   // routes to the right dashboard when they tap their name.
@@ -128,9 +127,11 @@ export default function PublicSidebar() {
         <Link href="/" className="flex items-center gap-3" onClick={onNavigate}>
           <Logo size={32} />
           <div className="min-w-0">
-            <div className="text-xs font-bold tracking-tight text-foreground line-clamp-2">
-              Нийслэлийн ерөнхий боловсролын 3-р сургууль
-            </div>
+            {schoolName && (
+              <div className="text-xs font-bold tracking-tight text-foreground line-clamp-2">
+                {schoolName}
+              </div>
+            )}
           </div>
         </Link>
       </div>
@@ -171,6 +172,25 @@ export default function PublicSidebar() {
           );
         })}
       </nav>
+
+      {/* Feedback call-to-action — the page people reach from the QR posters. */}
+      <Link
+        href="/feedback"
+        onClick={onNavigate}
+        className="group relative mx-3 mb-3 block overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#0d4ea6,#0a2f6b)] p-3.5 text-white shadow-lg shadow-[#0a2f6b]/20 transition hover:-translate-y-0.5"
+      >
+        <span aria-hidden className="absolute -right-5 -top-5 h-14 w-14 rounded-full border-4 border-[#ffc928]/60" />
+        <div className="relative flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15">
+            <MessageSquareHeart className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">Санал хүсэлт</span>
+            <span className="block text-[11px] text-white/75">Санал, гомдол, талархал</span>
+          </span>
+          <ChevronRight className="h-4 w-4 opacity-70 transition group-hover:translate-x-0.5" />
+        </div>
+      </Link>
 
       {/* Signature Progress for Teachers */}
       {signatureData && (
@@ -330,6 +350,13 @@ export default function PublicSidebar() {
                   </Link>
                 );
               })}
+              <Link
+                href="/feedback"
+                title="Санал хүсэлт"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0d4ea6] text-white shadow-md shadow-[#0a2f6b]/30 transition hover:bg-[#0a2f6b]"
+              >
+                <MessageSquareHeart className="h-4 w-4" />
+              </Link>
             </nav>
           </div>
         ) : (
