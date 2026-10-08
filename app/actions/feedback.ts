@@ -18,7 +18,9 @@ const MAX_NAME = 120;
 const MAX_CONTACT = 200;
 
 // Per-IP limit. Tighter than search, looser than login.
-const MAX_PER_WINDOW = 5;
+// Per IP. Mobile networks put many phones behind one address, so this is
+// not tighter than a few messages a minute.
+const MAX_PER_WINDOW = 10;
 const WINDOW_MS = 10 * 60_000;
 const MAX_URLS = 2;
 const URL_RE = /\bhttps?:\/\/\S+/gi;
@@ -38,7 +40,7 @@ export async function submitFeedback(
   }
 
   const ip = await getClientIp();
-  if (!hitRateLimit(`feedback:${ip}`, MAX_PER_WINDOW, WINDOW_MS)) {
+  if (!await hitRateLimit(`feedback:${ip}`, MAX_PER_WINDOW, WINDOW_MS)) {
     return {
       ok: false,
       message: "Та саяхан хэд хэдэн санал илгээсэн байна. 10 минутын дараа дахин оролдоно уу.",

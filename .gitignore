@@ -16,3 +16,6 @@ backups/
 
 # Teacher/staff website — its own git repo (github.com/dogzit/Surguuli-staff)
 /staff/
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo

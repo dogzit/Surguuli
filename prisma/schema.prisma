@@ -17,7 +17,10 @@ model User {
   email             String?     @unique
   role              String
   position          String
-  pin               String      @default("0000")
+  pin               String      // bcrypt hash; no default — new accounts get a random PIN
+  // Bumped whenever the PIN changes; session tokens carry the version they
+  // were issued with, so older sessions stop working (lib/session.ts).
+  sessionVersion    Int         @default(0)
 
   signatures        Signature[] @relation("ApproverSignatures")
   managedSignatures Signature[] @relation("TeacherSignatures")
@@ -622,3 +625,13 @@ model AuditLog {
   @@index([actorId, createdAt])
 }
 
+// Shared counters for lib/rate-limit.ts. Serverless instances do not share
+// memory, so login/feedback limits live here. Rows expire at `resetAt` and
+// are swept opportunistically.
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}

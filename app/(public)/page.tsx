@@ -66,7 +66,8 @@ export default async function HomePage() {
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // Escape "<" so a value containing "</script>" can't end the tag early.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <Hero
         schoolName={info.name}

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 
 // Central source of truth for anything that used to be hardcoded in a
@@ -146,7 +147,9 @@ function emptyBundle(): SchoolInfoBundle {
   };
 }
 
-export async function loadSchoolInfoBundle(): Promise<SchoolInfoBundle> {
+// Memoised per request: the root layout's metadata, the layout and the page
+// all read it.
+export const loadSchoolInfoBundle = cache(async (): Promise<SchoolInfoBundle> => {
   let rows: Array<{ key: string; value: string }>;
   try {
     rows = await prisma.schoolInfo.findMany();
@@ -198,7 +201,7 @@ export async function loadSchoolInfoBundle(): Promise<SchoolInfoBundle> {
     locations: safeParseJson<LocationEntry[]>(map.get(KEYS.locations), []),
     developerCredit: get(KEYS.developerCredit),
   };
-}
+});
 
 /** Just the school display name — small helper used by page metadata. */
 export async function loadSchoolName(): Promise<string> {

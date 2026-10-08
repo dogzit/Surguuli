@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   }
 
   const ip = await getClientIp();
-  if (!hitRateLimit(`search:${ip}`, RATE_MAX, RATE_WINDOW_MS)) {
+  if (!await hitRateLimit(`search:${ip}`, RATE_MAX, RATE_WINDOW_MS)) {
     return NextResponse.json({ error: "Хэт олон хайлт. Дараа дахин оролдоно уу." }, { status: 429 });
   }
 

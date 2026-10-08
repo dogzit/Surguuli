@@ -1,76 +1,67 @@
 import { headers } from "next/headers";
-
-type Entry = { count: number; firstAt: number };
-
-const buckets = new Map<string, Entry>();
-
-// Hard cap so attackers cannot grow the map without bound by spraying
-// random keys (memory-exhaustion DoS).
-const MAX_KEYS = 10_000;
+import { prisma } from "./prisma";
 
 /**
- * In-memory fixed-window rate limiter.
- * Returns true when the action is allowed, false when the limit is exceeded.
+ * Fixed-window rate limiter backed by the RateLimit table, so every
+ * serverless instance shares the same counters (an in-memory Map only
+ * limited each instance separately). Returns true when the action is
+ * allowed, false once `max` hits happened inside the current window.
  *
- * Note: per-process memory only — sufficient for a single-instance deployment.
- * For multi-instance deployments back this with Redis instead.
+ * One atomic upsert per call; the window is measured on the database clock.
+ * Fails open: if the database is unreachable the action itself will fail
+ * anyway, and a rate-limit hiccup must not lock every user out.
  */
-export function hitRateLimit(
+export async function hitRateLimit(
   key: string,
   max: number,
   windowMs: number,
-): boolean {
-  const now = Date.now();
-  const entry = buckets.get(key);
-
-  if (!entry || now - entry.firstAt > windowMs) {
-    if (buckets.size >= MAX_KEYS) {
-      // Evict expired entries first; if still full, drop oldest keys.
-      for (const [k, v] of buckets) {
-        if (now - v.firstAt > windowMs) buckets.delete(k);
-      }
-      while (buckets.size >= MAX_KEYS) {
-        const oldest = buckets.keys().next().value;
-        if (oldest === undefined) break;
-        buckets.delete(oldest);
-      }
+): Promise<boolean> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ count: number }>>`
+      INSERT INTO "RateLimit" ("key", "count", "resetAt")
+      VALUES (${key}, 1, now() + ${windowMs} * interval '1 millisecond')
+      ON CONFLICT ("key") DO UPDATE SET
+        "count" = CASE WHEN "RateLimit"."resetAt" <= now() THEN 1
+                       ELSE "RateLimit"."count" + 1 END,
+        "resetAt" = CASE WHEN "RateLimit"."resetAt" <= now() THEN EXCLUDED."resetAt"
+                         ELSE "RateLimit"."resetAt" END
+      RETURNING "count"`;
+    // Sweep long-expired rows now and then instead of running a cron.
+    if (Math.random() < 0.02) {
+      void prisma.rateLimit
+        .deleteMany({ where: { resetAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } } })
+        .catch(() => {});
     }
-    buckets.set(key, { count: 1, firstAt: now });
+    return Number(rows[0]?.count ?? 1) <= max;
+  } catch (err) {
+    console.error("[rate-limit] check failed", err);
     return true;
   }
-
-  entry.count += 1;
-  return entry.count <= max;
 }
 
-export function resetRateLimit(key: string): void {
-  buckets.delete(key);
+/** True when `key` has used up `max` hits in its current window. Counts nothing. */
+export async function isRateLimited(key: string, max: number): Promise<boolean> {
+  const row = await prisma.rateLimit.findUnique({ where: { key } }).catch(() => null);
+  return !!row && row.resetAt > new Date() && row.count >= max;
+}
+
+export async function resetRateLimit(key: string): Promise<void> {
+  await prisma.rateLimit.deleteMany({ where: { key } }).catch(() => {});
 }
 
 /**
- * Best-effort client IP from proxy headers (for rate-limit bucketing).
+ * Client IP for rate-limit bucketing.
  *
- * `x-forwarded-for` is trivially spoofable by clients when the server has no
- * trusted proxy sitting in front. We only trust it when TRUSTED_PROXY=1 (set
- * by the deployment env — Vercel, Cloudflare, etc.). Otherwise we fall back
- * to `x-real-ip` and finally the string "unknown".
- *
- * When XFF contains a chain (`client, proxy1, proxy2, ...`), we take the
- * left-most entry — that's the original client as seen by the outer-most
- * trusted proxy.
+ * `x-forwarded-for` is spoofable unless a trusted proxy sets it. Vercel's
+ * edge always overwrites `x-real-ip` / `x-forwarded-for` with the real
+ * client address, so they are trusted there (and wherever TRUSTED_PROXY=1).
+ * Elsewhere (local dev) every caller shares the "unknown" bucket.
  */
 export async function getClientIp(): Promise<string> {
   const h = await headers();
-  const trustProxy = process.env.TRUSTED_PROXY === "1";
-
-  if (trustProxy) {
-    const fwd = h.get("x-forwarded-for");
-    const ip = fwd?.split(",")[0]?.trim() || h.get("x-real-ip")?.trim();
+  if (process.env.VERCEL === "1" || process.env.TRUSTED_PROXY === "1") {
+    const ip = h.get("x-real-ip")?.trim() || h.get("x-forwarded-for")?.split(",")[0]?.trim();
     return ip || "unknown";
   }
-
-  // Without a trusted proxy, XFF is user-controlled and MUST NOT be used for
-  // security decisions. `x-real-ip` is likewise unreliable, but at least the
-  // caller can opt in to it by setting TRUSTED_PROXY.
   return "unknown";
 }
