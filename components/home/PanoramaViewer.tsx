@@ -36,6 +36,10 @@ export default function PanoramaViewer({
   const viewerRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isAutoRotate, setIsAutoRotate] = useState(true);
+  // Read at init without re-creating the viewer on every toggle; the effect
+  // below applies later changes to the live viewer.
+  const autoRotateRef = useRef(isAutoRotate);
+  autoRotateRef.current = isAutoRotate;
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeHotSpot, setActiveHotSpot] = useState<string | null>(null);
 
@@ -73,7 +77,7 @@ export default function PanoramaViewer({
           type: "equirectangular",
           panorama: panoramaUrl,
           autoLoad: true,
-          autoRotate: isAutoRotate ? -2 : 0,
+          autoRotate: autoRotateRef.current ? -2 : 0,
           showControls: false,
           hotSpots: hotSpots.map((hs, i) => ({
             pitch: hs.pitch,
@@ -222,10 +226,9 @@ function InteractiveFallback({ title, className }: { title?: string; className?:
   // Auto rotate
   useEffect(() => {
     if (!autoRotate) { cancelAnimationFrame(animRef.current!); return; }
-    let angle = rotation.y;
+    // Continue from wherever the view is now (it may have been dragged).
     const animate = () => {
-      angle += 0.15;
-      setRotation((r) => ({ ...r, y: angle }));
+      setRotation((r) => ({ ...r, y: r.y + 0.15 }));
       animRef.current = requestAnimationFrame(animate);
     };
     animRef.current = requestAnimationFrame(animate);

@@ -1,10 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, ZoomIn, ImageIcon } from "lucide-react";
 import { SectionShell } from "./SectionShell";
 import type { GalleryImageRow } from "@/lib/site-data";
+
+// Photos uploaded by staff live in Vercel Blob; those go through next/image.
+const BLOB_HOST = /\.public\.blob\.vercel-storage\.com$/;
+function isOptimizable(url: string): boolean {
+  try {
+    return BLOB_HOST.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
 
 const CATEGORIES = [
   { value: "all", label: "Бүгд" },
@@ -34,13 +45,16 @@ export function Gallery({ images }: { images: GalleryImageRow[] }) {
 
   const lightbox = lightboxIdx !== null ? filtered[lightboxIdx] ?? null : null;
 
-  const closeLightbox = () => setLightboxIdx(null);
-  const stepLightbox = (delta: number) =>
-    setLightboxIdx((i) =>
-      i === null || filtered.length === 0
-        ? i
-        : (i + delta + filtered.length) % filtered.length,
-    );
+  const closeLightbox = useCallback(() => setLightboxIdx(null), []);
+  const stepLightbox = useCallback(
+    (delta: number) =>
+      setLightboxIdx((i) =>
+        i === null || filtered.length === 0
+          ? i
+          : (i + delta + filtered.length) % filtered.length,
+      ),
+    [filtered.length],
+  );
 
   // Keyboard: Escape closes, arrows navigate, lock body scroll
   useEffect(() => {
@@ -57,7 +71,7 @@ export function Gallery({ images }: { images: GalleryImageRow[] }) {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [lightboxIdx]);
+  }, [lightboxIdx, closeLightbox, stepLightbox]);
 
   // If category changes while lightbox is open, close it (index no longer meaningful)
   useEffect(() => {
@@ -112,11 +126,24 @@ export function Gallery({ images }: { images: GalleryImageRow[] }) {
                 aria-label={`${img.title} — томруулж үзэх`}
                 className="group relative aspect-square w-full overflow-hidden rounded-xl border border-border bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
-                <img
-                  src={img.url}
-                  alt={img.alt ?? img.title}
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
+                {isOptimizable(img.url) ? (
+                  <Image
+                    src={img.url}
+                    alt={img.alt ?? img.title}
+                    fill
+                    sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  // Pasted links can point anywhere; only our Blob storage is
+                  // allowed through the image optimizer (next.config.mjs).
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={img.url}
+                    alt={img.alt ?? img.title}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                )}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/30">
                   <ZoomIn className="h-8 w-8 text-white opacity-0 transition group-hover:opacity-100" />
                 </div>
@@ -163,6 +190,8 @@ export function Gallery({ images }: { images: GalleryImageRow[] }) {
               className="relative max-h-[85vh] max-w-[90vw]"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Full-size view of unknown dimensions — a plain img sizes itself. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={lightbox.url}
                 alt={lightbox.alt ?? lightbox.title}

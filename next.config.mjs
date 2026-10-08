@@ -12,6 +12,11 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Only staff uploads (Vercel Blob) are optimized; arbitrary hosts would
+  // turn /_next/image into an open image proxy.
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" }],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
