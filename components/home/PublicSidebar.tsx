@@ -1,24 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Menu, X, Home, Plane, Users, Calendar, Clock, Star, Wallet,
-  BookOpen, Shield, Newspaper, Phone, LogIn, LogOut, User, ChevronRight,
-  PanelLeftClose, PanelLeftOpen, AlertTriangle,
+  BookOpen, Shield, Newspaper, Phone, ChevronRight, GraduationCap, ArrowUpRight,
+  PanelLeftClose, PanelLeftOpen,
   Search, MessageSquareHeart,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
-import { NotificationBell } from "./NotificationBell";
 import { useSidebar } from "./SidebarContext";
 import { cn } from "@/lib/utils";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { STAFF_SITE_URL } from "@/lib/staff-site";
 
 // Nav is intentionally trimmed to pages that have real content today.
 // /schedule, /time-calc, /teacher-eval, /budget still exist as routes
@@ -37,30 +33,12 @@ const NAV_LINKS = [
 
 export default function PublicSidebar({ schoolName }: { schoolName: string | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  // `homePath` comes from /api/auth/status so a student/parent session
-  // routes to the right dashboard when they tap their name.
-  const [authState, setAuthState] = useState<{
-    loggedIn: boolean;
-    role?: string;
-    name?: string;
-    homePath?: string;
-  }>({ loggedIn: false });
-  const [logoutModal, setLogoutModal] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const { collapsed, toggle } = useSidebar();
   const pathname = usePathname();
-  const router = useRouter();
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    fetch("/api/auth/status")
-      .then((r) => r.json())
-      .then(setAuthState)
-      .catch(() => setAuthState({ loggedIn: false }));
-  }, []);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -74,23 +52,6 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
       document.body.style.overflow = "";
     };
   }, [mobileOpen]);
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      // Client-side navigation + refresh keeps the app shell warm and
-      // re-fetches the auth-dependent server components without a full
-      // page reload (Next dev-server is slow after location.href = "/").
-      router.replace("/");
-      router.refresh();
-      setLogoutModal(false);
-    } catch {
-      setLogoutModal(false);
-    } finally {
-      setLoggingOut(false);
-    }
-  };
 
   const NavContent = ({ onNavigate }: { onNavigate?: () => void }) => (
     <>
@@ -164,45 +125,19 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
         </div>
       </Link>
 
-      {/* Bottom section - pinned to bottom */}
-      <div className="mt-auto border-t border-border/50">
-        {/* Auth */}
-        <div className="px-3 py-4">
-          {authState.loggedIn ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Link
-                  href={authState.homePath ?? "/dashboard"}
-                  onClick={onNavigate}
-                  className="flex flex-1 items-center gap-3 rounded-xl bg-primary/10 px-3 py-2.5 text-sm font-medium text-primary transition-all hover:bg-primary/15"
-                >
-                  <User className="h-4 w-4" />
-                  <span className="flex-1 truncate">{authState.name || "Хэрэглэгч"}</span>
-                  <ChevronRight className="h-4 w-4 opacity-50" />
-                </Link>
-                <NotificationBell />
-              </div>
-              <button
-                type="button"
-                onClick={() => setLogoutModal(true)}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Гарах</span>
-              </button>
-            </div>
-          ) : (
-            <Link
-              href="/login"
-              onClick={onNavigate}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/80 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-primary/25 transition-all hover:shadow-xl"
-            >
-              <LogIn className="h-4 w-4" />
-              Нэвтрэх
-            </Link>
-          )}
+      {/* Staff use their own website; this site has no sign-in. */}
+      {STAFF_SITE_URL && (
+        <div className="mt-auto border-t border-border/50 px-3 py-4">
+          <a
+            href={STAFF_SITE_URL}
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent/50 hover:text-foreground"
+          >
+            <GraduationCap className="h-4 w-4" />
+            <span className="flex-1">Багш, ажилтан</span>
+            <ArrowUpRight className="h-4 w-4 opacity-50" />
+          </a>
         </div>
-      </div>
+      )}
     </>
   );
 
@@ -308,51 +243,6 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
       <div className="fixed right-4 top-4 z-50">
         <ThemeToggle />
       </div>
-
-      {/* Logout Confirmation Modal */}
-      <Dialog open={logoutModal} onOpenChange={(v) => !loggingOut && setLogoutModal(v)}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-              </div>
-              Гарах уу?
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Та системээс гарахдаа итгэлтэй байна уу?
-          </p>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setLogoutModal(false)}
-              disabled={loggingOut}
-              className="rounded-xl"
-            >
-              Цуцлах
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="rounded-xl"
-            >
-              {loggingOut ? (
-                <>
-                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Гарч байна...
-                </>
-              ) : (
-                <>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Гарах
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

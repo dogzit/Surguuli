@@ -60,7 +60,7 @@ const KIND_UI: Record<
   },
 };
 
-export function FeedbackForm({ signedInAs }: { signedInAs: string | null }) {
+export function FeedbackForm() {
   const [state, formAction] = useFormState(submitFeedback, INITIAL_STATE);
   const [kind, setKind] = useState<FeedbackKind>("suggestion");
   const [topic, setTopic] = useState("other");
@@ -257,28 +257,22 @@ export function FeedbackForm({ signedInAs }: { signedInAs: string | null }) {
           />
         </label>
 
-        {!anonymous &&
-          (signedInAs ? (
-            <p className="rounded-xl bg-primary/5 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-              <span className="font-semibold text-foreground">{signedInAs}</span> нэрээр илгээгдэнэ.
-              Хариуг энэ хуудаснаас болон мэдэгдлээр авна.
-            </p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="fb-name" className="text-xs text-muted-foreground">Нэр (заавал биш)</Label>
-                <Input id="fb-name" name="name" maxLength={120} className="h-11 rounded-xl text-base sm:text-sm" />
-                {err.name && <p className="text-xs text-destructive">{err.name}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="fb-contact" className="text-xs text-muted-foreground">
-                  Утас эсвэл и-мэйл (хариу авах бол)
-                </Label>
-                <Input id="fb-contact" name="contact" maxLength={200} className="h-11 rounded-xl text-base sm:text-sm" />
-                {err.contact && <p className="text-xs text-destructive">{err.contact}</p>}
-              </div>
+        {!anonymous && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="fb-name" className="text-xs text-muted-foreground">Нэр (заавал биш)</Label>
+              <Input id="fb-name" name="name" maxLength={120} className="h-11 rounded-xl text-base sm:text-sm" />
+              {err.name && <p className="text-xs text-destructive">{err.name}</p>}
             </div>
-          ))}
+            <div className="space-y-1.5">
+              <Label htmlFor="fb-contact" className="text-xs text-muted-foreground">
+                Утас эсвэл и-мэйл (хариу авах бол)
+              </Label>
+              <Input id="fb-contact" name="contact" maxLength={200} className="h-11 rounded-xl text-base sm:text-sm" />
+              {err.contact && <p className="text-xs text-destructive">{err.contact}</p>}
+            </div>
+          </div>
+        )}
 
         {/* Honeypot: hidden from humans, filled by bots -> silently dropped server-side. */}
         <div className="hidden" aria-hidden="true">

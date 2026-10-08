@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { Lock } from "lucide-react";
 import type { Classroom } from "./types";
 import { ClassroomCard } from "./ClassroomCard";
+import { STAFF_SITE_URL } from "@/lib/staff-site";
 
 interface GradePanelProps {
   grade: number;
@@ -36,11 +36,13 @@ export function GradePanel({ grade, classrooms, managerName, canSeeStudents }: G
           </div>
           <p className="flex-1 text-xs leading-relaxed text-muted-foreground">
             Хүүхдийн хувийн мэдээллийг хамгаалах үүднээс сурагчдын нэрсийг зөвхөн
-            нэвтэрсэн багш, ажилтанд харуулна.
+            багш, ажилтны системд харуулна.
           </p>
-          <Link href="/login" className="text-xs font-semibold text-primary hover:underline">
-            Ажилтнаар нэвтрэх
-          </Link>
+          {STAFF_SITE_URL && (
+            <a href={STAFF_SITE_URL} className="text-xs font-semibold text-primary hover:underline">
+              Багш, ажилтны систем
+            </a>
+          )}
         </div>
       )}
 

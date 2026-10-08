@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import type { ActorKind } from "@/lib/session";
 import { renderEmailShell, sendMail } from "@/lib/mail";
 import { STAFF_SITE_URL } from "@/lib/staff-site";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+
+// Recipients are rows in the shared database: staff ("user") accounts,
+// students or parents.
+export type ActorKind = "user" | "student" | "parent";
 
 // Central notification API. Every place that used to fire off a
 // side-effect (news publish, portfolio approval, parent invite) calls

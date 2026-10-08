@@ -5,9 +5,6 @@ import { ArrowLeft, Calendar, Tag } from "lucide-react";
 import { loadNewsBySlug } from "@/lib/site-data";
 import { loadSchoolName } from "@/lib/school-info";
 import { SectionShell } from "@/components/home/SectionShell";
-import { prisma } from "@/lib/prisma";
-import { getCurrentActor, type ActorKind } from "@/lib/session";
-import { NewsReactionsBar } from "./NewsReactionsBar";
 
 export const revalidate = 60;
 
@@ -41,51 +38,6 @@ export default async function NewsDetailPage({
 }) {
   const item = await loadNewsBySlug(params.slug);
   if (!item) notFound();
-
-  // Everything reactions/bookmark-related is fetched here so the client
-  // component renders correct state on first paint. Aggregates are cheap
-  // (single indexed queries).
-  const actor = await getCurrentActor();
-  const [heartCount, clapCount, myHeart, myClap, myBookmark] = await Promise.all([
-    prisma.newsReaction.count({ where: { newsItemId: item.id, kind: "heart" } }),
-    prisma.newsReaction.count({ where: { newsItemId: item.id, kind: "clap" } }),
-    actor
-      ? prisma.newsReaction.findUnique({
-          where: {
-            newsItemId_actorKind_actorId_kind: {
-              newsItemId: item.id,
-              actorKind: actorKindOf(actor.kind),
-              actorId: actorIdOf(actor),
-              kind: "heart",
-            },
-          },
-        })
-      : Promise.resolve(null),
-    actor
-      ? prisma.newsReaction.findUnique({
-          where: {
-            newsItemId_actorKind_actorId_kind: {
-              newsItemId: item.id,
-              actorKind: actorKindOf(actor.kind),
-              actorId: actorIdOf(actor),
-              kind: "clap",
-            },
-          },
-        })
-      : Promise.resolve(null),
-    actor
-      ? prisma.bookmark.findUnique({
-          where: {
-            actorKind_actorId_targetKind_targetId: {
-              actorKind: actorKindOf(actor.kind),
-              actorId: actorIdOf(actor),
-              targetKind: "news",
-              targetId: item.id,
-            },
-          },
-        })
-      : Promise.resolve(null),
-  ]);
 
   const date = new Date(item.publishedAt ?? item.date);
   const dateLabel = date.toLocaleDateString("mn-MN", {
@@ -138,15 +90,6 @@ export default async function NewsDetailPage({
           </p>
         )}
 
-        <NewsReactionsBar
-          newsItemId={item.id}
-          initialHearts={heartCount}
-          initialClaps={clapCount}
-          myHeart={!!myHeart}
-          myClap={!!myClap}
-          myBookmark={!!myBookmark}
-          isLoggedIn={!!actor}
-        />
 
         {/* Rich body */}
         {item.body ? (
@@ -166,20 +109,4 @@ export default async function NewsDetailPage({
       </article>
     </SectionShell>
   );
-}
-
-// Actor ↔ polymorphic (actorKind, actorId) shape. Keeps the Prisma
-// composite-unique queries above readable.
-function actorKindOf(kind: ActorKind): string {
-  return kind;
-}
-function actorIdOf(actor: NonNullable<Awaited<ReturnType<typeof getCurrentActor>>>): string {
-  switch (actor.kind) {
-    case "user":
-      return actor.user.id;
-    case "student":
-      return actor.student.id;
-    case "parent":
-      return actor.parent.id;
-  }
 }

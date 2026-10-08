@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentActor, type Actor } from "@/lib/session";
 import { hitRateLimit, getClientIp } from "@/lib/rate-limit";
 import { notifyMany } from "@/lib/notifications";
 import { FEEDBACK_KINDS, FEEDBACK_TOPICS, isOption } from "@/lib/feedback";
@@ -24,27 +23,8 @@ const WINDOW_MS = 10 * 60_000;
 const MAX_URLS = 2;
 const URL_RE = /\bhttps?:\/\/\S+/gi;
 
-function actorName(actor: Actor): string {
-  switch (actor.kind) {
-    case "user":
-      return actor.user.name;
-    case "student":
-      return `${actor.student.lastName} ${actor.student.firstName}`;
-    case "parent":
-      return actor.parent.name;
-  }
-}
-
-function actorId(actor: Actor): string {
-  switch (actor.kind) {
-    case "user":
-      return actor.user.id;
-    case "student":
-      return actor.student.id;
-    case "parent":
-      return actor.parent.id;
-  }
-}
+// Must match SOCIAL_WORKER_POSITION in the staff site's lib/positions.ts.
+const SOCIAL_WORKER_POSITION = "Нийгмийн ажилтан";
 
 export async function submitFeedback(
   _prev: FeedbackFormState,
@@ -78,13 +58,11 @@ export async function submitFeedback(
   if (body.length < MIN_BODY) fieldErrors.body = `Хамгийн багадаа ${MIN_BODY} тэмдэгт бичнэ үү`;
   else if (body.length > MAX_BODY) fieldErrors.body = `Хамгийн ихдээ ${MAX_BODY} тэмдэгт`;
 
-  // Identity: anonymous means we store nothing that points back to the sender,
-  // even when they are signed in.
-  const actor = anonymous ? null : await getCurrentActor();
+  // Identity: anonymous means we store nothing that points back to the sender.
   let name: string | null = null;
   let contact: string | null = null;
   if (!anonymous) {
-    name = actor ? actorName(actor) : String(formData.get("name") ?? "").trim() || null;
+    name = String(formData.get("name") ?? "").trim() || null;
     contact = String(formData.get("contact") ?? "").trim() || null;
     if (name && name.length > MAX_NAME) fieldErrors.name = "Хэт урт байна";
     if (contact && contact.length > MAX_CONTACT) fieldErrors.contact = "Хэт урт байна";
@@ -107,8 +85,6 @@ export async function submitFeedback(
         title: title || null,
         body,
         anonymous,
-        actorKind: actor?.kind ?? null,
-        actorId: actor ? actorId(actor) : null,
         name,
         contact,
       },
@@ -118,9 +94,13 @@ export async function submitFeedback(
     return { ok: false, message: "Илгээх үед алдаа гарлаа. Дараа дахин оролдоно уу." };
   }
 
-  // Let admin accounts know there is something to triage.
+  // Let the people who triage feedback on the staff site know: admin
+  // accounts and the social worker (who has full access there).
   const admins = await prisma.user
-    .findMany({ where: { role: "ADMIN" }, select: { id: true } })
+    .findMany({
+      where: { OR: [{ role: "ADMIN" }, { role: "APPROVER", position: SOCIAL_WORKER_POSITION }] },
+      select: { id: true },
+    })
     .catch(() => []);
   await notifyMany(
     admins.map((a) => ({ actorKind: "user" as const, actorId: a.id })),
@@ -132,10 +112,5 @@ export async function submitFeedback(
     },
   );
 
-  return {
-    ok: true,
-    message: actor
-      ? "Таны санал захиргаанд хүрлээ. Хариуг энэ хуудасны доод хэсгээс харна уу."
-      : thanks,
-  };
+  return { ok: true, message: thanks };
 }
