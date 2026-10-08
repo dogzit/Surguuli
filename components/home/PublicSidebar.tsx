@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Menu, X, Home, Plane, Users, Calendar, Clock, Star, Wallet,
-  BookOpen, Shield, Newspaper, Phone, ChevronRight, GraduationCap, ArrowUpRight,
+  BookOpen, Shield, Newspaper, Phone, ChevronRight,
   PanelLeftClose, PanelLeftOpen,
   Search, MessageSquareHeart,
 } from "lucide-react";
@@ -14,7 +14,6 @@ import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useSidebar } from "./SidebarContext";
 import { cn } from "@/lib/utils";
-import { STAFF_SITE_URL } from "@/lib/staff-site";
 
 // Nav is intentionally trimmed to pages that have real content today.
 // /schedule, /time-calc, /teacher-eval, /budget still exist as routes
@@ -125,19 +124,6 @@ export default function PublicSidebar({ schoolName }: { schoolName: string | nul
         </div>
       </Link>
 
-      {/* Staff use their own website; this site has no sign-in. */}
-      {STAFF_SITE_URL && (
-        <div className="mt-auto border-t border-border/50 px-3 py-4">
-          <a
-            href={STAFF_SITE_URL}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent/50 hover:text-foreground"
-          >
-            <GraduationCap className="h-4 w-4" />
-            <span className="flex-1">Багш, ажилтан</span>
-            <ArrowUpRight className="h-4 w-4 opacity-50" />
-          </a>
-        </div>
-      )}
     </>
   );
 
