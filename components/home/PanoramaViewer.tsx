@@ -48,7 +48,6 @@ export default function PanoramaViewer({
     const init = async () => {
       // Pannellum attaches to window — load dynamically from public/
       if (typeof window === "undefined") return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const w = window as any;
       if (!w.pannellum) {
         await new Promise<void>((resolve) => {

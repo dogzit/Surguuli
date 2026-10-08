@@ -21,6 +21,11 @@ export function Protection({ policies, officer, phone, email }: Props) {
       description="Хүүхдийн эрх, аюулгүй байдлыг хамгаалах бодлого, эрсдэлийн үнэлгээ, албан ёсны хариуцлагатай ажилтны нэр, харилцах утас нь энэ хэсэгт нээлттэй байршдаг."
     >
       <div className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
+        {policies.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center text-sm text-muted-foreground">
+            Хүүхэд хамгааллын бодлого удахгүй нийтлэгдэнэ.
+          </div>
+        ) : (
         <ul className="space-y-3">
           {policies.map((p) => (
             <li key={p}>
@@ -33,6 +38,7 @@ export function Protection({ policies, officer, phone, email }: Props) {
             </li>
           ))}
         </ul>
+        )}
 
         <Card className="border-primary/30 bg-primary/[0.04] p-6">
           <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-primary">
@@ -42,23 +48,31 @@ export function Protection({ policies, officer, phone, email }: Props) {
           <h3 className="mt-1 text-lg font-semibold text-foreground">
             Хүүхэд хамгааллын нэгж
           </h3>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex items-center justify-between border-b border-border pb-2">
-              <dt className="text-muted-foreground">Хариуцсан</dt>
-              <dd className="font-medium text-foreground">{officer}</dd>
-            </div>
-            <div className="flex items-center justify-between border-b border-border pb-2">
-              <dt className="text-muted-foreground">Утас</dt>
-              <dd className="flex items-center gap-1 font-mono text-foreground">
-                <Phone className="h-3 w-3" />
-                {phone}
-              </dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">И-мэйл</dt>
-              <dd className="font-mono text-xs text-foreground">{email}</dd>
-            </div>
-          </dl>
+          {(officer || phone || email) && (
+            <dl className="mt-4 divide-y divide-border text-sm [&>div]:py-2">
+              {officer && (
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted-foreground">Хариуцсан</dt>
+                  <dd className="font-medium text-foreground">{officer}</dd>
+                </div>
+              )}
+              {phone && (
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted-foreground">Утас</dt>
+                  <dd className="flex items-center gap-1 font-mono text-foreground">
+                    <Phone className="h-3 w-3" />
+                    {phone}
+                  </dd>
+                </div>
+              )}
+              {email && (
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted-foreground">И-мэйл</dt>
+                  <dd className="font-mono text-xs text-foreground">{email}</dd>
+                </div>
+              )}
+            </dl>
+          )}
           <Button asChild className="mt-5 w-full">
             <Link href="/contact">Албан ёсны хүсэлт илгээх</Link>
           </Button>

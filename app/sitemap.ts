@@ -10,6 +10,7 @@ const ROUTES = [
   "/quality",
   "/protection",
   "/news",
+  "/feedback",
   "/contact",
 ] as const;
 

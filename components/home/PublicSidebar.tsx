@@ -6,71 +6,38 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Menu, X, Home, Plane, Users, Calendar, Clock, Star, Wallet,
-  BookOpen, Shield, Newspaper, Phone, LogIn, LogOut, User, ChevronRight,
-  PanelLeftClose, PanelLeftOpen, AlertTriangle, FileSignature, CheckCircle2,
+  BookOpen, Shield, Newspaper, Phone, ChevronRight,
+  PanelLeftClose, PanelLeftOpen,
+  Search, MessageSquareHeart,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useSidebar } from "./SidebarContext";
 import { cn } from "@/lib/utils";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 
+// Nav is intentionally trimmed to pages that have real content today.
+// /schedule, /time-calc, /teacher-eval, /budget still exist as routes
+// (in case anyone has an old bookmark) but they render a branded
+// coming-soon state instead of being surfaced in the primary nav.
 const NAV_LINKS = [
   { href: "/", label: "Нүүр", icon: Home },
   { href: "/tour", label: "Виртуал аялал", icon: Plane },
   { href: "/classes", label: "Анги бүлэг", icon: Users },
-  { href: "/schedule", label: "Хичээлийн хуваарь", icon: Calendar },
-  { href: "/time-calc", label: "Цагийн тооцоо", icon: Clock },
-  { href: "/teacher-eval", label: "Багшийн үнэлгээ", icon: Star },
-  { href: "/budget", label: "Төсөв", icon: Wallet },
   { href: "/quality", label: "Сургалтын чанар", icon: BookOpen },
   { href: "/protection", label: "Хүүхэд хамгаалал", icon: Shield },
   { href: "/news", label: "Мэдээ", icon: Newspaper },
+  { href: "/search", label: "Хайлт", icon: Search },
   { href: "/contact", label: "Холбоо", icon: Phone },
 ] as const;
 
-interface SignatureData {
-  signed: number;
-  total: number;
-  complete: boolean;
-}
-
-export default function PublicSidebar() {
+export default function PublicSidebar({ schoolName }: { schoolName: string | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [authState, setAuthState] = useState<{ loggedIn: boolean; role?: string; name?: string }>({ loggedIn: false });
-  const [logoutModal, setLogoutModal] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [signatureData, setSignatureData] = useState<SignatureData | null>(null);
   const { collapsed, toggle } = useSidebar();
   const pathname = usePathname();
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    fetch("/api/auth/status")
-      .then((r) => r.json())
-      .then(setAuthState)
-      .catch(() => setAuthState({ loggedIn: false }));
-  }, []);
-
-  // Fetch signature progress for teachers
-  useEffect(() => {
-    if (authState.loggedIn && authState.role !== "ADMIN" && authState.role !== "APPROVER") {
-      fetch("/api/teacher/signatures/progress")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d && d.total > 0) {
-            setSignatureData(d);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [authState]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -85,17 +52,6 @@ export default function PublicSidebar() {
     };
   }, [mobileOpen]);
 
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      window.location.href = "/";
-    } catch {
-      setLoggingOut(false);
-      setLogoutModal(false);
-    }
-  };
-
   const NavContent = ({ onNavigate }: { onNavigate?: () => void }) => (
     <>
       {/* Logo */}
@@ -103,9 +59,11 @@ export default function PublicSidebar() {
         <Link href="/" className="flex items-center gap-3" onClick={onNavigate}>
           <Logo size={32} />
           <div className="min-w-0">
-            <div className="text-xs font-bold tracking-tight text-foreground line-clamp-2">
-              Нийслэлийн ерөнхий боловсролын 3-р сургууль
-            </div>
+            {schoolName && (
+              <div className="text-xs font-bold tracking-tight text-foreground line-clamp-2">
+                {schoolName}
+              </div>
+            )}
           </div>
         </Link>
       </div>
@@ -147,78 +105,25 @@ export default function PublicSidebar() {
         })}
       </nav>
 
-      {/* Signature Progress for Teachers */}
-      {signatureData && (
-        <div className="mx-3 mb-3 rounded-xl border border-border/50 bg-muted/30 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            {signatureData.complete ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            ) : (
-              <FileSignature className="h-4 w-4 text-primary" />
-            )}
-            <span className="text-xs font-medium">
-              {signatureData.complete ? "Амралт баталгаажсан!" : "Гарын үсэг"}
-            </span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.round((signatureData.signed / signatureData.total) * 100)}%` }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className={cn(
-                "h-full rounded-full",
-                signatureData.complete
-                  ? "bg-emerald-500"
-                  : "bg-gradient-to-r from-primary/80 to-primary",
-              )}
-            />
-          </div>
-          <div className="mt-1.5 text-[10px] text-muted-foreground">
-            {signatureData.signed}/{signatureData.total} гарын үсэг
-          </div>
+      {/* Feedback call-to-action — the page people reach from the QR posters. */}
+      <Link
+        href="/feedback"
+        onClick={onNavigate}
+        className="group relative mx-3 mb-3 block overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#0d4ea6,#0a2f6b)] p-3.5 text-white shadow-lg shadow-[#0a2f6b]/20 transition hover:-translate-y-0.5"
+      >
+        <span aria-hidden className="absolute -right-5 -top-5 h-14 w-14 rounded-full border-4 border-[#ffc928]/60" />
+        <div className="relative flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15">
+            <MessageSquareHeart className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">Санал хүсэлт</span>
+            <span className="block text-[11px] text-white/75">Санал, гомдол, талархал</span>
+          </span>
+          <ChevronRight className="h-4 w-4 opacity-70 transition group-hover:translate-x-0.5" />
         </div>
-      )}
+      </Link>
 
-      {/* Bottom section - pinned to bottom */}
-      <div className="mt-auto border-t border-border/50">
-        {/* Auth */}
-        <div className="px-3 py-4">
-          {authState.loggedIn ? (
-            <div className="space-y-2">
-              <Link
-                href={
-                  authState.role === "ADMIN" || authState.role === "APPROVER"
-                    ? "/dashboard/admin"
-                    : "/dashboard/teacher"
-                }
-                onClick={onNavigate}
-                className="flex items-center gap-3 rounded-xl bg-primary/10 px-3 py-2.5 text-sm font-medium text-primary transition-all hover:bg-primary/15"
-              >
-                <User className="h-4 w-4" />
-                <span className="flex-1 truncate">{authState.name || "Хэрэглэгч"}</span>
-                <ChevronRight className="h-4 w-4 opacity-50" />
-              </Link>
-              <button
-                type="button"
-                onClick={() => setLogoutModal(true)}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Гарах</span>
-              </button>
-            </div>
-          ) : (
-            <Link
-              href="/login"
-              onClick={onNavigate}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/80 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-primary/25 transition-all hover:shadow-xl"
-            >
-              <LogIn className="h-4 w-4" />
-              Нэвтрэх
-            </Link>
-          )}
-        </div>
-      </div>
     </>
   );
 
@@ -306,6 +211,13 @@ export default function PublicSidebar() {
                   </Link>
                 );
               })}
+              <Link
+                href="/feedback"
+                title="Санал хүсэлт"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0d4ea6] text-white shadow-md shadow-[#0a2f6b]/30 transition hover:bg-[#0a2f6b]"
+              >
+                <MessageSquareHeart className="h-4 w-4" />
+              </Link>
             </nav>
           </div>
         ) : (
@@ -317,51 +229,6 @@ export default function PublicSidebar() {
       <div className="fixed right-4 top-4 z-50">
         <ThemeToggle />
       </div>
-
-      {/* Logout Confirmation Modal */}
-      <Dialog open={logoutModal} onOpenChange={(v) => !loggingOut && setLogoutModal(v)}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-              </div>
-              Гарах уу?
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Та системээс гарахдаа итгэлтэй байна уу?
-          </p>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setLogoutModal(false)}
-              disabled={loggingOut}
-              className="rounded-xl"
-            >
-              Цуцлах
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="rounded-xl"
-            >
-              {loggingOut ? (
-                <>
-                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Гарч байна...
-                </>
-              ) : (
-                <>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Гарах
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

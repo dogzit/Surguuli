@@ -1,109 +1,67 @@
 import { prisma } from "@/lib/prisma";
 
-export interface StudentRow {
+// Shapes for the public /classes page. Deliberately minimal: student codes,
+// attendance and GPA never leave the server from here, and student rows are
+// only loaded when the caller has already verified a staff session.
+export interface PublicStudent {
   id: string;
-  code: string;
   firstName: string;
   lastName: string;
   gender: "M" | "F";
-  attendance: number;
-  gpa: number;
-  classroomId: string;
 }
 
-export interface ClassroomRow {
+export interface PublicClassroom {
   id: string;
   grade: number;
-  section: string;
   label: string;
   headTeacher: string;
   room: string | null;
-  capacity: number;
   studentCount: number;
-  status: string;
-  students?: StudentRow[];
-}
-
-export interface GradeSummary {
-  grade: number;
-  label: string;
-  sections: number;
-  totalStudents: number;
-  capacity: number;
-  headTeacher: string;
-  averageAttendance: number;
-  status: "sealed" | "active";
+  students?: PublicStudent[];
 }
 
 export async function loadClassrooms(options?: {
-  includeStudentsForGrades?: number[];
-}): Promise<ClassroomRow[]> {
-  const grades = options?.includeStudentsForGrades;
+  includeStudents?: boolean;
+}): Promise<PublicClassroom[]> {
   const rows = await prisma.classroom.findMany({
     orderBy: [{ grade: "asc" }, { section: "asc" }],
-    include: grades
-      ? {
-          students: {
-            where: {},
-            orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-          },
-        }
-      : undefined,
+    select: {
+      id: true,
+      grade: true,
+      label: true,
+      headTeacher: true,
+      room: true,
+      _count: { select: { students: true } },
+    },
   });
+
+  const byClassroom = new Map<string, PublicStudent[]>();
+  if (options?.includeStudents && rows.length > 0) {
+    const students = await prisma.student.findMany({
+      where: { classroomId: { in: rows.map((r) => r.id) } },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      select: { id: true, firstName: true, lastName: true, gender: true, classroomId: true },
+    });
+    for (const s of students) {
+      const list = byClassroom.get(s.classroomId) ?? [];
+      list.push({
+        id: s.id,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        gender: s.gender === "F" ? "F" : "M",
+      });
+      byClassroom.set(s.classroomId, list);
+    }
+  }
+
   return rows.map((r) => ({
     id: r.id,
     grade: r.grade,
-    section: r.section,
     label: r.label,
     headTeacher: r.headTeacher,
     room: r.room,
-    capacity: r.capacity,
-    studentCount: r.studentCount,
-    status: r.status,
-    students:
-      grades && grades.includes(r.grade) && "students" in r
-        ? (r as unknown as { students: Array<{
-            id: string; code: string; firstName: string; lastName: string;
-            gender: string; attendance: number; gpa: number; classroomId: string;
-          }> }).students.map((s) => ({
-            id: s.id,
-            code: s.code,
-            firstName: s.firstName,
-            lastName: s.lastName,
-            gender: s.gender === "M" ? "M" : "F",
-            attendance: s.attendance,
-            gpa: s.gpa,
-            classroomId: s.classroomId,
-          }))
-        : undefined,
+    // Live relation count, not the denormalized studentCount column.
+    studentCount: r._count.students,
+    students: options?.includeStudents ? (byClassroom.get(r.id) ?? []) : undefined,
   }));
-}
-
-export function summarizeByGrade(rows: ClassroomRow[]): GradeSummary[] {
-  const grouped = new Map<number, ClassroomRow[]>();
-  for (const r of rows) {
-    const bucket = grouped.get(r.grade) ?? [];
-    bucket.push(r);
-    grouped.set(r.grade, bucket);
-  }
-
-  const summaries: GradeSummary[] = [];
-  for (const [grade, sections] of grouped) {
-    const totalStudents = sections.reduce((a, s) => a + s.studentCount, 0);
-    const capacity = sections.reduce((a, s) => a + s.capacity, 0);
-    const primary = sections[0]!;
-    const attendanceSeed = 92 + ((grade * 3) % 6) + Math.random() * 0.4;
-    summaries.push({
-      grade,
-      label: `${grade}-р анги`,
-      sections: sections.length,
-      totalStudents,
-      capacity,
-      headTeacher: primary.headTeacher,
-      averageAttendance: Number(attendanceSeed.toFixed(1)),
-      status: "sealed",
-    });
-  }
-  summaries.sort((a, b) => a.grade - b.grade);
-  return summaries;
 }

@@ -5,13 +5,14 @@ import { cn } from "@/lib/utils";
 
 interface GradeSidebarProps {
   activeGrade: number;
+  // Grades that have at least one classroom in the DB. Others are disabled.
+  availableGrades: ReadonlySet<number>;
   onSelect: (grade: number) => void;
 }
 
 const GRADES = Array.from({ length: 12 }, (_, i) => i + 1);
-const ACTIVE_GRADES = new Set([2]);
 
-export function GradeSidebar({ activeGrade, onSelect }: GradeSidebarProps) {
+export function GradeSidebar({ activeGrade, availableGrades, onSelect }: GradeSidebarProps) {
   return (
     <aside className="lg:w-52 lg:flex-shrink-0">
       <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -22,7 +23,7 @@ export function GradeSidebar({ activeGrade, onSelect }: GradeSidebarProps) {
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
         {GRADES.map((grade) => {
           const isActive = grade === activeGrade;
-          const isLocked = !ACTIVE_GRADES.has(grade);
+          const isLocked = !availableGrades.has(grade);
           return (
             <button
               key={grade}
@@ -48,7 +49,7 @@ export function GradeSidebar({ activeGrade, onSelect }: GradeSidebarProps) {
       <ul className="mt-3 hidden space-y-0.5 lg:block">
         {GRADES.map((grade) => {
           const isActive = grade === activeGrade;
-          const isLocked = !ACTIVE_GRADES.has(grade);
+          const isLocked = !availableGrades.has(grade);
           return (
             <li key={grade}>
               <button
@@ -101,9 +102,6 @@ export function GradeSidebar({ activeGrade, onSelect }: GradeSidebarProps) {
         })}
       </ul>
 
-      <p className="mt-5 hidden text-xs leading-relaxed text-muted-foreground lg:block">
-        Одоогоор 2-р ангийн сурагчдын дэлгэрэнгүй нээлттэй байна.
-      </p>
     </aside>
   );
 }

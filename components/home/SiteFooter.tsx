@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import Logo from "@/components/Logo";
+import { loadSchoolInfoBundle } from "@/lib/school-info";
 
 const COL_QUICK = [
   { href: "/about", label: "Танилцуулга" },
@@ -12,11 +13,15 @@ const COL_QUICK = [
 const COL_STUDENTS = [
   { href: "/news", label: "Мэдээ, зарлал" },
   { href: "/protection", label: "Хүүхэд хамгаалал" },
+  { href: "/feedback", label: "Санал хүсэлт" },
   { href: "/contact", label: "Холбоо барих" },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const info = await loadSchoolInfoBundle();
   const year = new Date().getFullYear();
+  const chipLine = [info.city, info.district].filter(Boolean).join(" · ");
+
   return (
     <footer className="mt-8 border-t border-border/60 bg-muted/20">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
@@ -24,12 +29,16 @@ export function SiteFooter() {
           <div className="flex items-center gap-2.5">
             <Logo size={36} />
             <div className="leading-tight">
-              <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                Улаанбаатар · Сүхбаатар дүүрэг
-              </div>
-              <div className="text-sm font-semibold text-foreground">
-                3 дугаар сургууль
-              </div>
+              {chipLine && (
+                <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                  {chipLine}
+                </div>
+              )}
+              {info.shortName && (
+                <div className="text-sm font-semibold text-foreground">
+                  {info.shortName}
+                </div>
+              )}
             </div>
           </div>
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
@@ -79,10 +88,10 @@ export function SiteFooter() {
             Хаяг, холбоо
           </div>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-            <li>Сүхбаатар дүүрэг, 10-р хороо</li>
-            <li>Утас: (976) 7011-1180</li>
-            <li>И-мэйл: uuriingegee22@gmail.com</li>
-            <li>Ажлын цаг: Дав—Баа · 08:00—17:00</li>
+            {info.address && <li>{info.address}</li>}
+            {info.phone && <li>Утас: {info.phone}</li>}
+            {info.email && <li>И-мэйл: {info.email}</li>}
+            {info.workHours && <li>Ажлын цаг: {info.workHours}</li>}
           </ul>
         </div>
       </div>
@@ -92,18 +101,24 @@ export function SiteFooter() {
           <div className="flex flex-col items-center gap-1 sm:flex-row">
             <div className="flex items-center gap-1.5 font-medium text-foreground/80">
               <ShieldCheck className="h-3 w-3 text-primary" />
-              <span>© {year} 3-р Сургууль</span>
+              <span>
+                © {year} {info.shortName ?? ""}
+              </span>
             </div>
             <span className="hidden sm:inline">|</span>
             <span className="text-[10px]">Бүх эрх хуулиар хамгаалагдсан.</span>
           </div>
-          <div className="flex items-center gap-1.5 rounded-full bg-background px-3 py-1 shadow-sm ring-1 ring-border/50">
-            <span className="font-mono text-[9px] text-blue-500">{"< >"}</span>
-            <span className="text-muted-foreground/90">
-              Хөгжүүлсэн:{" "}
-              <span className="font-semibold text-foreground">12д Б.Золбаяр</span>
-            </span>
-          </div>
+          {info.developerCredit && (
+            <div className="flex items-center gap-1.5 rounded-full bg-background px-3 py-1 shadow-sm ring-1 ring-border/50">
+              <span className="font-mono text-[9px] text-blue-500">{"< >"}</span>
+              <span className="text-muted-foreground/90">
+                Хөгжүүлсэн:{" "}
+                <span className="font-semibold text-foreground">
+                  {info.developerCredit}
+                </span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </footer>

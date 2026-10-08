@@ -1,25 +1,24 @@
 import type { Metadata } from "next";
-import { SectionShell } from "@/components/home/SectionShell";
+import { ComingSoonSection } from "@/components/home/ComingSoonSection";
+import { loadSchoolName } from "@/lib/school-info";
 
-export const metadata: Metadata = {
-  title: "Багшийн үнэлгээ · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-  description: "Багш нарын үнэлгээ, сэтгэгдэл.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await loadSchoolName();
+  return {
+    title: name ? `Багшийн үнэлгээ · ${name}` : "Багшийн үнэлгээ",
+    description: "Багш нарын үнэлгээ, сэтгэгдэл.",
+    robots: { index: false, follow: true },
+  };
+}
 
 export default function TeacherEvalPage() {
   return (
-    <SectionShell
-      id="teacher-eval"
-      tone="light"
+    <ComingSoonSection
       eyebrow="Багшийн үнэлгээ"
-      title="Багшийн үнэлгээ"
-      description="Багш нарын үнэлгээ энд нэмэгдэх болно."
-    >
-      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
-        <p className="text-sm text-muted-foreground">
-          Багшийн үнэлгээ одоогоор бэлдэгдэж байна.
-        </p>
-      </div>
-    </SectionShell>
+      title="Багш нарын мэргэжлийн үнэлгээ"
+      body="Багш нарын мэргэшил, үнэлгээний албан ёсны хэсэг удахгүй нээгдэнэ. Одоохондоо сургалтын чанарын хуудсаас багшийн бүрэлдэхүүн, мэргэшил гэх мэт мэдээллийг үзэж болно."
+      ctaLabel="Сургалтын чанар"
+      ctaHref="/quality"
+    />
   );
 }

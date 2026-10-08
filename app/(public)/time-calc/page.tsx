@@ -1,25 +1,24 @@
 import type { Metadata } from "next";
-import { SectionShell } from "@/components/home/SectionShell";
+import { ComingSoonSection } from "@/components/home/ComingSoonSection";
+import { loadSchoolName } from "@/lib/school-info";
 
-export const metadata: Metadata = {
-  title: "Цагийн тооцоо · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-  description: "Сурагчдын цагийн тооцоо, ирцийн мэдээлэл.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await loadSchoolName();
+  return {
+    title: name ? `Цагийн тооцоо · ${name}` : "Цагийн тооцоо",
+    description: "Сурагчдын цагийн тооцоо, ирцийн мэдээлэл.",
+    robots: { index: false, follow: true },
+  };
+}
 
 export default function TimeCalcPage() {
   return (
-    <SectionShell
-      id="time-calc"
-      tone="light"
+    <ComingSoonSection
       eyebrow="Цагийн тооцоо"
-      title="Цагийн тооцоо"
-      description="Сурагчдын цагийн тооцоо энд нэмэгдэх болно."
-    >
-      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
-        <p className="text-sm text-muted-foreground">
-          Цагийн тооцоо одоогоор бэлдэгдэж байна.
-        </p>
-      </div>
-    </SectionShell>
+      title="Ирц, цагийн тооцоо"
+      body="Ирц, цагийн тооцооны албан ёсны бүртгэлийг Боловсролын ерөнхий системд явуулж байна. Тус портал дээр сурагч, эцэг эхийн харах булан удахгүй нэмэгдэнэ."
+      ctaLabel="Сурагчийн булан"
+      ctaHref="/dashboard/student"
+    />
   );
 }

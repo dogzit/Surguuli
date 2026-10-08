@@ -1,35 +1,32 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const SESSION_COOKIE = "session_uid";
+// The public site has no sign-in: visitors, students and parents all see the
+// same pages, and staff use the separate staff site. Middleware only
+// forwards old bookmarks.
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+// Staff pages moved to the staff site.
+const STAFF_SITE_URL = (process.env.NEXT_PUBLIC_STAFF_SITE_URL ?? "").replace(/\/$/, "");
+const STAFF_PATHS = [
+  "/dashboard/admin",
+  "/dashboard/teacher",
+  "/dashboard/accountant",
+  "/dashboard/duty",
+  "/dashboard/settings",
+];
 
-  // 1. Статик файлууд болон API-г алгасах (loop үүсэхээс сэргийлнэ)
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.includes(".") ||
-    pathname === "/favicon.ico"
-  ) {
-    return NextResponse.next();
+function under(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+export function middleware(req: NextRequest) {
+  const { pathname, search } = req.nextUrl;
+
+  if (STAFF_SITE_URL && STAFF_PATHS.some((p) => under(pathname, p))) {
+    return NextResponse.redirect(`${STAFF_SITE_URL}${pathname}${search}`);
   }
 
-  // 2. /dashboard/admin нь өөрийн gate-тэй учир middleware-аар шалгахгүй
-  // (admin cookie эсвэл session cookie - аль нь ч байж болно)
-  if (pathname.startsWith("/dashboard/admin")) {
-    return NextResponse.next();
-  }
-
-  const hasSession = !!req.cookies.get(SESSION_COOKIE)?.value;
-
-  // 3. Хэрэв нэвтрээгүй бөгөөд dashboard руу орох гэж байвал -> login руу шид
-  if (pathname.startsWith("/dashboard") && !hasSession) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  // 4. Хэрэв аль хэдийн нэвтэрсэн бөгөөд login хуудас руу орох гэж байвал -> нүүр хуудас руу шид
-  if (pathname === "/login" && hasSession) {
+  // Student/parent login and dashboards were removed.
+  if (under(pathname, "/login") || under(pathname, "/dashboard")) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
@@ -37,5 +34,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/login/:path*", "/dashboard/:path*"],
 };

@@ -6,40 +6,50 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { LoadingBar } from "@/components/home/LoadingBar";
 import { ScrollToTop } from "@/components/home/ScrollToTop";
 import { NavigationLoader } from "@/components/home/NavigationLoader";
+import PWARegister from "@/components/PWARegister";
 import { cn } from "@/lib/utils";
+import { loadSchoolInfoBundle } from "@/lib/school-info";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "Нийслэлийн ерөнхий боловсролын 3-р сургууль · Албан ёсны хуудас",
-    template: "%s · Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-  },
-  description:
-    "Нийслэлийн ерөнхий боловсролын 3-р сургуулийн танилцуулга, түүх, виртуал аялал, анги бүлэг, сургалтын чанар, хүүхэд хамгааллын албан ёсны цахим хуудас.",
-  openGraph: {
-    type: "website",
-    locale: "mn_MN",
-    siteName: "Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-    title: "Нийслэлийн ерөнхий боловсролын 3-р сургууль · Албан ёсны хуудас",
-    description:
-      "1921 онд байгуулагдсан Монголын анхны олон нийтийн сургуулиудын нэг.",
-    images: ["/logo.png"],
-  },
-  twitter: {
-    card: "summary",
-    title: "Нийслэлийн ерөнхий боловсролын 3-р сургууль",
-    description:
-      "1921 онд байгуулагдсан Монголын анхны олон нийтийн сургуулиудын нэг.",
-    images: ["/logo.png"],
-  },
-  icons: {
-    icon: "/logo.png",
-  },
-};
+// Root metadata is derived from SchoolInfo so a rename in the DB flows
+// everywhere. Individual pages can override title/description as usual.
+export async function generateMetadata(): Promise<Metadata> {
+  const info = await loadSchoolInfoBundle();
+  const name = info.name ?? "Албан ёсны хуудас";
+  const shortName = info.shortName ?? name;
+  const desc = info.foundedYear
+    ? `${info.foundedYear} онд байгуулагдсан ${name}-ийн албан ёсны цахим хуудас.`
+    : `${name}-ийн албан ёсны цахим хуудас.`;
+
+  return {
+    metadataBase: new URL(siteUrl),
+    title: {
+      default: `${name} · Албан ёсны хуудас`,
+      template: `%s · ${shortName}`,
+    },
+    description: desc,
+    openGraph: {
+      type: "website",
+      locale: "mn_MN",
+      siteName: name,
+      title: `${name} · Албан ёсны хуудас`,
+      description: desc,
+      images: ["/logo.png"],
+    },
+    twitter: {
+      card: "summary",
+      title: name,
+      description: desc,
+      images: ["/logo.png"],
+    },
+    icons: {
+      icon: "/logo.png",
+    },
+  };
+}
 
 export default function RootLayout({
   children,
@@ -65,6 +75,7 @@ export default function RootLayout({
           {children}
           <ScrollToTop />
           <Toaster richColors position="top-right" />
+          <PWARegister />
         </ThemeProvider>
       </body>
     </html>
