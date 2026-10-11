@@ -24,6 +24,7 @@ model User {
 
   signatures        Signature[] @relation("ApproverSignatures")
   managedSignatures Signature[] @relation("TeacherSignatures")
+  dutyAssignments   DutyAssignment[]
 }
 
 model Signature {
@@ -432,6 +433,24 @@ model LateArrival {
   @@unique([studentId, date])
   @@index([date])
   @@index([classLabel, date])
+}
+
+// Teacher(s) on gate duty for a school day, set by the management council on
+// /dashboard/admin/duty-schedule. Only they (plus the council and admins) may
+// record late arrivals that day. `date` is the same Asia/Ulaanbaatar day key
+// as LateArrival.date.
+model DutyAssignment {
+  id             String   @id @default(cuid())
+  date           String   // "YYYY-MM-DD", Asia/Ulaanbaatar
+  teacherId      String
+  assignedByName String   // snapshot of who set it
+
+  teacher        User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+
+  @@unique([date, teacherId])
+  @@index([teacherId, date])
 }
 
 // Feedback & suggestions box (/feedback). Anyone may submit; signed-in
